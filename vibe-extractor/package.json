@@ -1,0 +1,17 @@
+{
+  "name": "vibe-extractor",
+  "version": "1.0.0",
+  "description": "Extract Power Apps Vibe project source files to local disk",
+  "type": "module",
+  "main": "index.js",
+  "bin": {
+    "vibe-extract": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "extract": "node index.js"
+  },
+  "dependencies": {
+    "playwright": "^1.44.0"
+  }
+}

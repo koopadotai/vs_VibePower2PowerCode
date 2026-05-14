@@ -1,0 +1,44 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node:*)",
+      "Bash(npm:*)",
+      "Bash(npx:*)",
+      "Bash(pac:*)",
+      "Bash(git:*)",
+      "Bash(powershell:*)",
+      "Bash(Get-ChildItem:*)",
+      "Bash(Get-Content:*)",
+      "Bash(Set-Content:*)",
+      "Bash(New-Item:*)",
+      "Bash(Copy-Item:*)"
+    ]
+  },
+  "skills": [
+    {
+      "name": "migrate",
+      "description": "Start a full AI-guided migration from Vibe to Power Code",
+      "path": "skills/migrate.md"
+    },
+    {
+      "name": "map-fields",
+      "description": "Discover and document field name mappings between Vibe and Dataverse models",
+      "path": "skills/map-fields.md"
+    },
+    {
+      "name": "add-connector",
+      "description": "Guide through adding a Power Platform connector data source",
+      "path": "skills/add-connector.md"
+    },
+    {
+      "name": "grill-with-docs",
+      "description": "Structured interview protocol — ask one question at a time, enforce terminology, probe edge cases, update CONTEXT.md immediately",
+      "path": "skills/grill-with-docs.md"
+    },
+    {
+      "name": "update",
+      "description": "Apply incremental changes from a re-downloaded Vibe source to an already-migrated Power Code project — only updates what actually changed",
+      "path": "skills/update.md"
+    }
+  ]
+}

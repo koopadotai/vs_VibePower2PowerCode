@@ -1,0 +1,27 @@
+node_modules/
+vibe-source/
+dist/
+.env
+.env.*
+*.local
+
+# PAC CLI auth cache
+.pac/
+
+# Power Apps local run cache
+.power/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/settings.json
+
+# Playwright browser binaries (installed via npx playwright install)
+vibe-extractor/node_modules/
+
+# Generated project output (user creates their own)
+# Uncomment if you want to exclude generated projects too:
+# [A-Z]*/dist/
+# [A-Z]*/node_modules/
