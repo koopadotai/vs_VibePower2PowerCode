@@ -205,7 +205,51 @@ function translateOrderBy(orderBy?: string[]) {
 
 ---
 
-### Step 5 — Add npm Dependencies
+### Step 5 — Add Connectors and Data Sources
+**Who:** Developer runs commands, you guide
+
+Do this immediately after the adapter layer — before fixing TypeScript — so `dataSourcesInfo.ts` is complete when the compiler runs.
+
+During Step 3 you identified which connectors the Vibe app uses (Office 365, SharePoint, etc.). For each one, guide the developer to find their **Connection ID** from the portal:
+
+1. Go to **[make.powerapps.com](https://make.powerapps.com)** → **More** → **Connections**
+2. Click the connection → look at the browser URL:
+   ```
+   .../connections/shared_office365/[CONNECTION-ID]/details
+   ```
+
+Then run:
+```powershell
+cd [ProjectName]
+npx power-apps add-data-source
+```
+
+At the prompts:
+- **API ID:** the connector's API name (e.g. `shared_office365`, `shared_sharepointonline`)
+- **Connection reference?** → **No**
+- **Connection ID:** the ID found in the portal
+
+**This step is manual — never edit `dataSourcesInfo.ts` by hand.** The CLI generates the correct `/{connectionId}/` path prefix in every operation path. Manual edits cause `Connection reference not found` at runtime.
+
+After adding, update the calling code to use:
+```typescript
+import { getClient } from '@microsoft/power-apps/data';
+import { dataSourcesInfo } from '../../.power/schemas/appschemas/dataSourcesInfo';
+
+const client = getClient(dataSourcesInfo);
+
+await client.executeAsync({
+    connectorOperation: {
+        tableName: '[data-source-name]',   // matches key in power.config.json
+        operationName: '[OperationName]',   // matches key in dataSourcesInfo apis
+        parameters: { /* operation-specific */ },
+    },
+});
+```
+
+---
+
+### Step 6 — Add npm Dependencies
 **Who:** You (AI)
 
 Scan all extracted source files for imports. Build the full dependency list. Add to `[ProjectName]/package.json`.
@@ -233,7 +277,7 @@ Run `npm install` after updating `package.json`.
 
 ---
 
-### Step 6 — Update Configuration Files
+### Step 7 — Update Configuration Files
 **Who:** You (AI)
 
 **`vite.config.ts`:**
@@ -288,7 +332,7 @@ To find the **Environment ID**, ask the developer to:
 
 ---
 
-### Step 7 — Fix TypeScript Errors
+### Step 8 — Fix TypeScript Errors
 **Who:** You (AI)
 
 Run: `npx tsc --project tsconfig.app.json --noEmit`
@@ -305,46 +349,6 @@ Run: `npx tsc --project tsconfig.app.json --noEmit`
 | Missing `react-hook-form` | Run `npm install react-hook-form` |
 
 Fix all errors until `npx tsc --noEmit` produces no output.
-
----
-
-### Step 8 — Add Connectors and Data Sources
-**Who:** Developer runs commands, you guide
-
-For each connector the Vibe app used (Office 365, SharePoint, etc.), tell the developer:
-
-```powershell
-cd [ProjectName]
-npx power-apps add-data-source
-```
-
-At the prompts:
-- **API ID:** the connector's API name (e.g. `shared_office365`, `shared_sharepointonline`)
-- **Connection ref?** → **No**
-- **Connection ID:** the connection ID from `pac connection list`
-
-To list available connections:
-```powershell
-pac connection list --environment [environment-url]
-```
-
-**This step is manual — never try to edit `dataSourcesInfo.ts` manually.** The CLI generates the correct `/{connectionId}/` path prefix in every operation. Manual edits will cause `Connection reference not found` at runtime.
-
-After adding data sources, update the calling code to use:
-```typescript
-import { getClient } from '@microsoft/power-apps/data';
-import { dataSourcesInfo } from '../../.power/schemas/appschemas/dataSourcesInfo';
-
-const client = getClient(dataSourcesInfo);
-
-await client.executeAsync({
-    connectorOperation: {
-        tableName: '[data-source-name]',   // matches key in power.config.json
-        operationName: '[OperationName]',   // matches key in dataSourcesInfo apis
-        parameters: { /* operation-specific */ },
-    },
-});
-```
 
 ---
 

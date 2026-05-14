@@ -12,7 +12,17 @@ The user has extracted their Vibe app source into `./vibe-source/` and wants to 
 3. Check if `./vibe-source/` exists — if not, tell the user to run the vibe-extractor first (see README.md)
 4. Explore `./vibe-source/src/` to understand the app's structure, pages, components, and data sources
 5. Check for `CONTEXT.md` — if it exists, read it for prior decisions
-6. Follow the 9-step migration process in `CLAUDE.md` exactly
+6. Follow the migration steps in `CLAUDE.md` in this order:
+   - Step 0: Silent prerequisites check
+   - Step 1: Understand Vibe source (note which connectors are used)
+   - Step 2: Scaffold Power Code project
+   - Step 3: Extract clean TypeScript
+   - Step 4: Build data adapter layer
+   - **Step 5: Add connectors & data sources** ← before npm install, so dataSourcesInfo is complete
+   - Step 6: Add npm dependencies
+   - Step 7: Update configuration files
+   - Step 8: Fix TypeScript errors (dataSourcesInfo now complete → clean compile)
+   - Step 9: Build and push
 
 ## Questions to ask before starting
 
