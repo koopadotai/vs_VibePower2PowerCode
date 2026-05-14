@@ -20,14 +20,25 @@ Common API IDs:
 | Excel Online (Business) | `shared_excelonlinebusiness` |
 | Power Automate (flow) | `shared_logicflows` |
 
-### Step 2 — Find the connection ID
-Tell the developer to run:
-```powershell
-pac connection list --environment [their-environment-url]
-```
-Find the row for the connector they need. The `Id` column is the connection ID. Make sure the `Status` is `Connected`.
+### Step 2 — Find the Connection ID from the portal
+
+Tell the developer to:
+
+1. Go to **[make.powerapps.com](https://make.powerapps.com)**
+2. Make sure you are in the correct environment (top-right environment selector)
+3. In the left sidebar click **More** → **Connections**
+4. Find the connector you need (e.g. Office 365 Outlook)
+5. Click the **three dots (...)** next to it → **Details** — OR click directly on the connection name
+6. Look at the **browser URL** — it will look like:
+   ```
+   https://make.powerapps.com/environments/[env-id]/connections/[api-id]/[CONNECTION-ID]/details
+   ```
+   The `CONNECTION-ID` part is what you need (e.g. `shared-office365-ecb327de-373b-46d2-ac82-78581b464924`)
+
+If the connection doesn't exist yet, click **New connection** and create one for the required connector first.
 
 ### Step 3 — Add the data source
+
 Tell the developer to run:
 ```powershell
 cd [ProjectName]
@@ -37,11 +48,23 @@ npx power-apps add-data-source
 At the prompts:
 - **API ID:** `[api-id from table above]`
 - **Are you using a connection reference?** → **No**
-- **Connection ID:** `[connection-id from pac connection list]`
+- **Connection ID:** `[connection-id from Step 2]`
 
 This updates `power.config.json` and `.power/schemas/appschemas/dataSourcesInfo.ts` automatically.
 
-### Step 4 — Update the calling code
+### Step 4 — Find your Environment ID (if needed for power.config.json)
+
+If the developer needs their environment ID:
+
+1. Go to **[make.powerapps.com](https://make.powerapps.com)**
+2. Look at the URL when you're in the maker portal — it contains:
+   ```
+   https://make.powerapps.com/environments/[ENVIRONMENT-ID]/...
+   ```
+3. OR go to **Settings (gear icon)** → **Session details** — the Environment ID is listed there
+
+### Step 5 — Update the calling code
+
 Replace any direct `fetch()` calls with `executeAsync({ connectorOperation })`:
 
 ```typescript
@@ -52,7 +75,7 @@ const client = getClient(dataSourcesInfo);
 
 const result = await client.executeAsync({
     connectorOperation: {
-        tableName: '[data-source-name]',   // the key used when adding data source
+        tableName: '[data-source-name]',   // key used when running add-data-source
         operationName: '[OperationName]',   // from dataSourcesInfo apis section
         parameters: { /* see dataSourcesInfo for parameter names */ },
     },
@@ -61,7 +84,7 @@ const result = await client.executeAsync({
 if (!result.success) throw result.error;
 ```
 
-### Step 5 — Build and push
+### Step 6 — Build and push
 ```powershell
 npm run build
 npx power-apps push
@@ -69,6 +92,6 @@ npx power-apps push
 
 ## Important rules
 
-- **Never edit `dataSourcesInfo.ts` manually** — the CLI generates correct `/{connectionId}/` path prefixes that are required by the SDK
-- If you get `Connection reference not found: [name]` at runtime, the data source was not added correctly — re-run `npx power-apps add-data-source`
-- The `tableName` in `connectorOperation` must exactly match the key that was registered when you ran `add-data-source`
+- **Never edit `dataSourcesInfo.ts` manually** — the CLI generates correct `/{connectionId}/` path prefixes required by the SDK
+- If you get `Connection reference not found: [name]` at runtime, re-run `npx power-apps add-data-source`
+- The `tableName` in `connectorOperation` must exactly match the key registered when you ran `add-data-source`

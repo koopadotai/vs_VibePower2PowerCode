@@ -69,10 +69,26 @@ npm install
 npx power-apps init
 ```
 
-### 2.2 Connect to your environment
+### 2.2 Find your Environment ID
 
-```powershell
-pac auth create --environment https://[your-org].crm[N].dynamics.com/
+You need this for `power.config.json`. Find it in two ways:
+
+**Option A — from the browser URL:**
+Go to [make.powerapps.com](https://make.powerapps.com) and look at the URL:
+```
+https://make.powerapps.com/environments/[ENVIRONMENT-ID]/home
+```
+
+**Option B — from Session details:**
+Click the **gear icon (⚙)** top-right → **Session details** → copy **Environment ID**
+
+Update `power.config.json`:
+```json
+{
+  "environmentId": "[ENVIRONMENT-ID]",
+  "appDisplayName": "[YourProjectName]",
+  "appId": null
+}
 ```
 
 ### 2.3 Generate Dataverse models
@@ -109,11 +125,16 @@ Claude Code will guide you through the rest. It will:
 
 For each external connector your app uses (Office 365, SharePoint, etc.):
 
-```powershell
-# List your available connections
-pac connection list --environment https://[your-org].crm[N].dynamics.com/
+**Find your Connection ID from the portal:**
+1. Go to [make.powerapps.com](https://make.powerapps.com) → **More** → **Connections**
+2. Click on the connection you need → look at the browser URL:
+   ```
+   .../connections/shared_office365/[CONNECTION-ID]/details
+   ```
+3. Copy the `CONNECTION-ID`
 
-# Add a connector to your Power Code project
+Then add it to your project:
+```powershell
 cd [YourProjectName]
 npx power-apps add-data-source
 ```
@@ -121,7 +142,7 @@ npx power-apps add-data-source
 Follow the prompts:
 - **API ID:** e.g. `shared_office365`
 - **Connection reference?** → No
-- **Connection ID:** from `pac connection list` output
+- **Connection ID:** the ID you found in the portal
 
 Or ask Claude Code: `/add-connector`
 

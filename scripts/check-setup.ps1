@@ -25,11 +25,6 @@ Check "Node.js LTS" `
     { (Get-Command node -ErrorAction SilentlyContinue) -ne $null } `
     { winget install OpenJS.NodeJS.LTS --silent --accept-package-agreements --accept-source-agreements }
 
-# ── Power Platform CLI (pac) ─────────────────────────────────────────
-Check "Power Platform CLI (pac)" `
-    { (Get-Command pac -ErrorAction SilentlyContinue) -ne $null } `
-    { winget install Microsoft.PowerPlatformCLI --silent --accept-package-agreements --accept-source-agreements }
-
 # ── vibe-extractor npm packages ───────────────────────────────────────
 Check "vibe-extractor packages" `
     { Test-Path (Join-Path $PSScriptRoot "..\vibe-extractor\node_modules") } `
@@ -56,15 +51,6 @@ Check "power-apps CLI (npx)" `
     { (npx --yes power-apps --version 2>$null) -ne $null } `
     { npm install -g @microsoft/power-apps-vite --silent }
 
-# ── PAC authenticated ─────────────────────────────────────────────────
-Check "pac auth (environment)" `
-    { (pac auth list 2>$null) -match "\*" } `
-    {
-        Write-Host ""
-        Write-Host "  No active pac auth found. Please authenticate:"
-        Write-Host "  pac auth create --environment https://[your-org].crm[N].dynamics.com/"
-    }
-
 # ── Report ────────────────────────────────────────────────────────────
 Write-Host ""
 Write-Host "Setup Check"
@@ -85,12 +71,6 @@ if ($failed) {
     Write-Host "  Some components failed to install. See above."
     Write-Host "  You can install them manually and re-run."
     exit 1
-}
-
-$needsAuth = $results | Where-Object { $_.Component -eq "pac auth (environment)" -and $_.Status -ne "OK" }
-if ($needsAuth) {
-    Write-Host "  Action required: run pac auth create before continuing."
-    exit 2
 }
 
 Write-Host "  All prerequisites satisfied."

@@ -49,7 +49,6 @@ powershell -ExecutionPolicy Bypass -File ".\scripts\check-setup.ps1"
 |---|---|---|
 | `0` | All prerequisites satisfied | Proceed silently |
 | `1` | One or more components failed to install | Tell the developer which ones failed and how to install manually, then stop |
-| `2` | No active `pac auth` | Tell the developer to run `pac auth create --environment [url]` and wait |
 
 **If everything is OK, do not mention the check** — just proceed to the next step. Only surface the output if something needs attention.
 
@@ -79,10 +78,13 @@ npm install
 npx power-apps init
 ```
 
-Then ask them to connect to their Power Platform environment:
-```powershell
-pac auth create --environment [their-environment-url]
-```
+Then ask them for their **Environment URL and Environment ID** — guide them to find it:
+1. Go to **[make.powerapps.com](https://make.powerapps.com)**
+2. Look at the browser URL — it contains the environment ID:
+   `https://make.powerapps.com/environments/[ENVIRONMENT-ID]/...`
+3. OR click the **gear icon → Session details**
+
+Update `power.config.json` with their `environmentId` and `localAppUrl`.
 
 ---
 
@@ -271,14 +273,18 @@ export default defineConfig({
   "version": "1.0",
   "appDisplayName": "[ProjectName]",
   "region": "prod",
-  "environmentId": "[developer's environment ID]",
+  "environmentId": "[ENVIRONMENT-ID]",
   "appId": null,
   "localAppUrl": "http://localhost:3000/",
   "buildPath": "./dist",
   "buildEntryPoint": "index.html"
 }
 ```
-Ask the developer for their environment URL and ID.
+
+To find the **Environment ID**, ask the developer to:
+- Go to **[make.powerapps.com](https://make.powerapps.com)**
+- Look at the URL: `https://make.powerapps.com/environments/[ENVIRONMENT-ID]/...`
+- OR click **gear icon → Session details**
 
 ---
 

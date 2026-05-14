@@ -25,9 +25,8 @@ This toolkit provides:
 
 ### Prerequisites
 - Node.js LTS
-- Power Platform CLI (`pac`)
 - Claude Code (VS Code extension or CLI)
-- Access to your Power Platform environment
+- Access to [make.powerapps.com](https://make.powerapps.com)
 
 ### 1. Clone this repo
 

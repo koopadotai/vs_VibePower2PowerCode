@@ -25,3 +25,5 @@ vibe-extractor/node_modules/
 # Uncomment if you want to exclude generated projects too:
 # [A-Z]*/dist/
 # [A-Z]*/node_modules/
+
+OMS/
