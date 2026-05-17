@@ -32,7 +32,10 @@ import {
 import { probeProject } from './lib/probe.js';
 import { renderStatus } from './lib/render-status.js';
 import { runOnProjects, summariseBatchResults, siblingCli } from './lib/run-on-project.js';
+import { collectFleet } from './lib/fleet-collect.js';
+import { renderFleetMarkdown } from './lib/render-fleet-md.js';
 import { ToolkitError, ERROR_CODES } from './lib/errors.js';
+import fsP from 'fs';
 
 const DIVIDER = '═'.repeat(58);
 
@@ -43,6 +46,8 @@ function parseArgs(argv) {
     command: null, positional: [], config: null, alias: null, tags: [], global: false, help: false,
     // Pass-through flags for verify/extract subprocesses
     headless: false, noReport: false, since: null, major: false, force: false, stopOnFirstFailure: false,
+    // report
+    mdOnly: false, out: null,
   };
   let i = 0;
   while (i < argv.length) {
@@ -57,6 +62,8 @@ function parseArgs(argv) {
     else if (a === '--major')   { out.major = true; }
     else if (a === '--force')   { out.force = true; }
     else if (a === '--stop-on-failure') { out.stopOnFirstFailure = true; }
+    else if (a === '--md-only') { out.mdOnly = true; }
+    else if (a === '--out')     { out.out = argv[++i]; }
     else if (a === '--help' || a === '-h') { out.help = true; }
     else if (out.command == null) { out.command = a; }
     else { out.positional.push(a); }
@@ -80,6 +87,8 @@ function printHelp() {
     extract [--alias X]               Run vibe-extractor on each project (sequential, interactive)
     verify [--alias X] [--since vX.Y.Z] [--headless] [--no-report]
                                       Run vibe-verifier on each project
+    report [--md-only] [--out DIR]    Generate FLEET.md (and FLEET.docx unless --md-only)
+                                      Default output dir: same dir as the fleet config
 
   Global options:
     --config <path>                   Use a specific fleet config
@@ -247,6 +256,51 @@ async function cmdVerify({ args, configPath }) {
   if (results.some(r => r.exitCode !== 0)) process.exitCode = 1;
 }
 
+async function cmdReport({ args, configPath, configSource }) {
+  const registry = loadRegistry(configPath);
+  const data = collectFleet({ registry, configPath, configSource });
+
+  const outDir = args.out
+    ? path.resolve(args.out)
+    : path.dirname(configPath);
+  fsP.mkdirSync(outDir, { recursive: true });
+
+  console.log('');
+  console.log(`vibe-fleet report — ${registry.fleetName}`);
+  console.log(`  Projects: ${data.meta.projectCount}`);
+  console.log(`  Output:   ${outDir}`);
+
+  // Markdown first (always).
+  const md = renderFleetMarkdown(data);
+  const mdPath = path.join(outDir, 'FLEET.md');
+  fsP.writeFileSync(mdPath, md, 'utf8');
+  console.log(`  ✓ Wrote ${path.relative(process.cwd(), mdPath)} (${md.length} chars)`);
+
+  if (args.mdOnly) return;
+
+  // DOCX (optional — skip cleanly if dep missing).
+  let renderFleetDocx;
+  try {
+    ({ renderFleetDocx } = await import('./lib/render-fleet-docx.js'));
+  } catch (err) {
+    console.log('');
+    console.log('  ! docx library not available — skipping Word output.');
+    console.log('    Install: cd vibe-fleet && npm install');
+    console.log(`    (cause: ${err.message})`);
+    return;
+  }
+  try {
+    const buf = await renderFleetDocx(data);
+    const docxPath = path.join(outDir, 'FLEET.docx');
+    fsP.writeFileSync(docxPath, buf);
+    console.log(`  ✓ Wrote ${path.relative(process.cwd(), docxPath)} (${buf.length} bytes)`);
+  } catch (err) {
+    const code = err.code ?? 'E_DOCX_RENDER_FAILED';
+    console.error(`  ! [${code}] Failed to render Word document: ${err.message}`);
+    console.error('    The Markdown was still written successfully.');
+  }
+}
+
 function cmdDoctor({ configPath, configSource }) {
   const registry = loadRegistry(configPath);
   console.log('');
@@ -307,6 +361,7 @@ async function main() {
     case 'doctor':     return cmdDoctor(ctx);
     case 'extract':    return cmdExtract(ctx);
     case 'verify':     return cmdVerify(ctx);
+    case 'report':     return cmdReport(ctx);
     default:
       console.error(`  ! Unknown command: ${command}`);
       printHelp();
