@@ -129,6 +129,24 @@ export const systemModel = {
       entrypoint: 'node vibe-toolkit-doc/index.js',
       dependencies: ['docx'],
     },
+    {
+      id: 'vibe-fleet',
+      type: 'cli-tool',
+      description: 'Multi-project orchestration. Maintains a registry of migrated projects (`fleet.config.json` or `~/.vibe-fleet/registry.json`) and shows their state on one screen. Drives batch extract/verify across the whole fleet and generates aggregated reports (FLEET.md/docx/html).',
+      location: 'vibe-fleet/',
+      entrypoint: 'node vibe-fleet/index.js',
+      flags: ['init', 'register', 'unregister', 'list', 'status', 'doctor', 'extract', 'verify', 'report', '--config', '--alias', '--tag', '--global', '--since', '--headless', '--no-report', '--md-only', '--html', '--out', '--stop-on-failure'],
+      dependencies: ['zod', 'docx'],
+    },
+    {
+      id: 'vibe-patterns',
+      type: 'cli-tool',
+      description: 'Shared knowledge base of reusable migration patterns: per-environment field mappings, connector configs, common ADR templates. New migrations inherit instead of re-discovering. Thin CLI; most use is by /migrate consuming patterns inline.',
+      location: 'vibe-patterns/',
+      entrypoint: 'node vibe-patterns/index.js',
+      flags: ['list', 'show', 'apply', '--to'],
+      dependencies: [],
+    },
 
     {
       id: 'skill:migrate',
@@ -313,6 +331,29 @@ export const systemModel = {
       location: 'docs/SYSTEM.md, docs/SYSTEM.docx',
       ownership: 'vibe-toolkit-doc writes.',
     },
+    {
+      id: 'art:fleet-config',
+      type: 'config',
+      description: 'The fleet registry — lists every project vibe-fleet manages. Per-workspace (./fleet.config.json) or global (~/.vibe-fleet/registry.json). Stores alias, absolute path, registration date, optional tags.',
+      location: 'fleet.config.json OR ~/.vibe-fleet/registry.json',
+      schema: '{ fleetName, createdAt, projects: [{ alias, path, registeredAt, lastSeen?, tags? }] }',
+      ownership: 'vibe-fleet (init/register/unregister write; status/doctor/report/extract/verify read).',
+    },
+    {
+      id: 'art:fleet-doc',
+      type: 'artifact',
+      description: 'Aggregated fleet documentation — every project on one screen. FLEET.md is git-trackable source; FLEET.docx for stakeholders; FLEET.html is a self-contained single-file dashboard with sortable tables.',
+      location: 'FLEET.md, FLEET.docx, FLEET.html (same dir as fleet.config.json or --out)',
+      ownership: 'vibe-fleet report writes.',
+    },
+    {
+      id: 'art:vibe-patterns',
+      type: 'artifact',
+      description: 'Shared knowledge base. Reusable field mappings, connector configs, and ADR templates that new migrations inherit. Lives in the toolkit checkout, not in any individual project.',
+      location: 'vibe-patterns/{field-mappings,connectors,adrs}/',
+      schema: 'field-mappings/*.json + connectors/*.json + adrs/*.md',
+      ownership: 'developer maintains; vibe-patterns CLI lists/applies; /migrate Mode A consumes.',
+    },
   ],
 
   // ── Edges (relationships) ─────────────────────────────────────────────────
@@ -373,6 +414,25 @@ export const systemModel = {
 
     { from: 'vibe-toolkit-doc', to: 'art:system-doc', type: 'writes' },
     { from: 'vibe-toolkit-doc', to: 'docx', type: 'depends-on' },
+
+    // ── Fleet edges ──────────────────────────────────────────────────────
+    { from: 'developer', to: 'vibe-fleet', type: 'invokes', description: 'Runs vibe-fleet commands (init, register, status, doctor, extract, verify, report)' },
+    { from: 'vibe-fleet', to: 'art:fleet-config', type: 'writes', description: 'init/register/unregister write; status/doctor/report/extract/verify read' },
+    { from: 'vibe-fleet', to: 'art:vibe-history', type: 'reads', description: 'Probe step reads each project\'s history for status/doctor/report' },
+    { from: 'vibe-fleet', to: 'art:vibe-pending-update', type: 'reads', description: 'Detects pending updates per project' },
+    { from: 'vibe-fleet', to: 'art:vibe-migration', type: 'reads' },
+    { from: 'vibe-fleet', to: 'art:power-config', type: 'reads' },
+    { from: 'vibe-fleet', to: 'art:context', type: 'reads', description: 'Excerpts CONTEXT.md first paragraph for fleet report' },
+    { from: 'vibe-fleet', to: 'vibe-extractor', type: 'invokes', description: '`vibe-fleet extract` spawns one per project, sequentially' },
+    { from: 'vibe-fleet', to: 'vibe-verifier', type: 'invokes', description: '`vibe-fleet verify` spawns one per project, sequentially' },
+    { from: 'vibe-fleet', to: 'art:fleet-doc', type: 'writes', description: '`vibe-fleet report` writes FLEET.md (always), FLEET.docx, FLEET.html' },
+    { from: 'vibe-fleet', to: 'docx', type: 'depends-on' },
+
+    // ── Patterns edges ───────────────────────────────────────────────────
+    { from: 'developer', to: 'vibe-patterns', type: 'invokes', description: 'list/show/apply patterns' },
+    { from: 'vibe-patterns', to: 'art:vibe-patterns', type: 'reads', description: 'Lists / reads pattern files' },
+    { from: 'vibe-patterns', to: 'art:adrs', type: 'writes', description: '`vibe-patterns apply adrs/X --to DIR` copies an ADR into docs/adr/' },
+    { from: 'skill:migrate', to: 'art:vibe-patterns', type: 'reads', description: 'Mode A consults field-mappings/, connectors/, adrs/ to offer inheritance' },
   ],
 
   // ── Data flows ────────────────────────────────────────────────────────────
@@ -449,6 +509,20 @@ export const systemModel = {
         'developer commits both (optional — .docx is binary, some teams gitignore it)',
       ],
     },
+    {
+      name: 'Fleet operations (status + batch + report)',
+      trigger: 'developer (or CI) runs a vibe-fleet command after onboarding many projects',
+      steps: [
+        'one-time: vibe-fleet init "<fleet name>" — creates fleet.config.json (or ~/.vibe-fleet/registry.json with --global)',
+        'one-time per project: vibe-fleet register <path> — guards: path must contain vibe-history.json; alias must be unique',
+        'daily: vibe-fleet status — probes every registered project (no lock held), prints table with health column + ⚠ legend for problems',
+        'daily / CI: vibe-fleet doctor — same probes but exits 1 if any project has warnings; suitable as a CI gate',
+        'when needed: vibe-fleet extract [--alias X] — sequentially invokes node vibe-extractor/index.js inside each project. Each project\'s vibe-lock prevents concurrent fleet runs from corrupting state',
+        'when needed: vibe-fleet verify [--alias X] [--since vX.Y.Z] [--headless] — same shape, invokes vibe-verifier with --latest by default. Output is prefixed with [alias] for attribution',
+        'weekly / before stakeholder meeting: vibe-fleet report [--html] — generates FLEET.md (always), FLEET.docx (default), FLEET.html (with --html). Health summary table, per-project cards, aggregated totals',
+        'patterns: vibe-patterns list / show / apply consumed inline by /migrate Mode A when a new project starts — offers inherited field mappings / connector configs / ADRs',
+      ],
+    },
   ],
 
   // ── Impact analysis ───────────────────────────────────────────────────────
@@ -489,6 +563,24 @@ export const systemModel = {
       ifModified: 'Affects every /migrate invocation. Mode dispatch logic at the top is load-bearing — Modes A, B, C are mutually exclusive based on filesystem state.',
       breaksIfRemoved: ['No migration possible at all'],
       criticalInvariants: ['Mode dispatch must be deterministic from filesystem state alone — never ask the developer which mode'],
+    },
+    {
+      component: 'fleet.config.json',
+      ifModified: 'Hand-edits that break the schema cause every vibe-fleet command (except init) to fail with E_FLEET_SCHEMA_INVALID. Aliases must remain unique; paths must be absolute and contain vibe-history.json.',
+      breaksIfRemoved: ['vibe-fleet status/doctor/report/extract/verify all fail with E_FLEET_NOT_FOUND'],
+      criticalInvariants: ['projects[].alias is unique', 'projects[].path is absolute', 'each path contains vibe-history.json (validated at register time)'],
+    },
+    {
+      component: 'vibe-fleet probe layer (lib/probe.js)',
+      ifModified: 'Every fleet command depends on probeProject(). Bugs here propagate to status, doctor, and report simultaneously.',
+      breaksIfRemoved: ['Fleet operations entirely; the registry remains intact but no health classification is possible'],
+      criticalInvariants: ['Probe NEVER takes a project lock — fleet ops are read-only across many projects; locking would create false-positive conflicts'],
+    },
+    {
+      component: 'vibe-patterns/ directory',
+      ifModified: 'Each pattern is independent; a broken JSON file only affects projects that try to inherit it. Bad patterns surface during /migrate Mode A as JSON-parse errors with the file path.',
+      breaksIfRemoved: ['No automatic inheritance — new migrations re-discover field mappings, connectors, ADRs from scratch. /migrate still works, just slower.'],
+      criticalInvariants: ['NEVER store secrets — connection IDs are project-public; auth tokens/passwords/customer data are not'],
     },
     {
       component: 'docs/SYSTEM.docx (this document)',

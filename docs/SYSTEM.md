@@ -1,7 +1,7 @@
 # VibePower2PowerCode — System Documentation
 
 **Version:** 1.0.0
-**Generated:** 2026-05-17 09:10:36 UTC
+**Generated:** 2026-05-17 14:51:43 UTC
 **Repository:** https://github.com/koopadotai/vs_VibePower2PowerCode
 **Audience:** humans + AI agents
 
@@ -23,13 +23,13 @@ The toolkit is composed of:
 |---|---|
 | actor | 2 |
 | external | 6 |
-| cli-tool | 4 |
+| cli-tool | 6 |
 | skill | 10 |
-| artifact | 13 |
+| artifact | 15 |
 | handoff | 1 |
-| config | 1 |
+| config | 2 |
 
-Plus **48 explicit relationships** between them, **4 named data flows**, and **7 impact-analysis entries**.
+Plus **63 explicit relationships** between them, **5 named data flows**, and **10 impact-analysis entries**.
 
 ## Solution Graph
 
@@ -92,6 +92,8 @@ graph TD
     vibe-verifier["vibe-verifier<br/><i>cli-tool</i>"]
     vibe-reporter["vibe-reporter<br/><i>cli-tool</i>"]
     vibe-toolkit-doc["vibe-toolkit-doc<br/><i>cli-tool</i>"]
+    vibe-fleet["vibe-fleet<br/><i>cli-tool</i>"]
+    vibe-patterns["vibe-patterns<br/><i>cli-tool</i>"]
     skill_migrate{{"skill:migrate<br/><i>skill</i>"}}
     skill_verify-migration{{"skill:verify-migration<br/><i>skill</i>"}}
     skill_migration-report{{"skill:migration-report<br/><i>skill</i>"}}
@@ -117,6 +119,9 @@ graph TD
     art_auth-state[("art:auth-state<br/><i>artifact</i>")]
     art_project-doc[("art:project-doc<br/><i>artifact</i>")]
     art_system-doc[("art:system-doc<br/><i>artifact</i>")]
+    art_fleet-config[/"art:fleet-config<br/><i>config</i>"/]
+    art_fleet-doc[("art:fleet-doc<br/><i>artifact</i>")]
+    art_vibe-patterns[("art:vibe-patterns<br/><i>artifact</i>")]
     developer -->|invokes| vibe-extractor
     developer -->|invokes| claude-code
     developer -->|invokes| vibe-verifier
@@ -165,6 +170,21 @@ graph TD
     vibe-reporter -..->|depends| docx
     vibe-toolkit-doc ==>|writes| art_system-doc
     vibe-toolkit-doc -..->|depends| docx
+    developer -->|invokes| vibe-fleet
+    vibe-fleet ==>|writes| art_fleet-config
+    vibe-fleet -->|reads| art_vibe-history
+    vibe-fleet -->|reads| art_vibe-pending-update
+    vibe-fleet -->|reads| art_vibe-migration
+    vibe-fleet -->|reads| art_power-config
+    vibe-fleet -->|reads| art_context
+    vibe-fleet -->|invokes| vibe-extractor
+    vibe-fleet -->|invokes| vibe-verifier
+    vibe-fleet ==>|writes| art_fleet-doc
+    vibe-fleet -..->|depends| docx
+    developer -->|invokes| vibe-patterns
+    vibe-patterns -->|reads| art_vibe-patterns
+    vibe-patterns ==>|writes| art_adrs
+    skill_migrate -->|reads| art_vibe-patterns
 ```
 
 ### View 3 — JSON graph spec (for AI agents)
@@ -267,6 +287,22 @@ Parse this directly. Each `node` has `id, type, location, entrypoint, invokedAs,
       "type": "cli-tool",
       "location": "vibe-toolkit-doc/",
       "entrypoint": "node vibe-toolkit-doc/index.js",
+      "invokedAs": null,
+      "ownership": null
+    },
+    {
+      "id": "vibe-fleet",
+      "type": "cli-tool",
+      "location": "vibe-fleet/",
+      "entrypoint": "node vibe-fleet/index.js",
+      "invokedAs": null,
+      "ownership": null
+    },
+    {
+      "id": "vibe-patterns",
+      "type": "cli-tool",
+      "location": "vibe-patterns/",
+      "entrypoint": "node vibe-patterns/index.js",
       "invokedAs": null,
       "ownership": null
     },
@@ -469,6 +505,30 @@ Parse this directly. Each `node` has `id, type, location, entrypoint, invokedAs,
       "entrypoint": null,
       "invokedAs": null,
       "ownership": "vibe-toolkit-doc writes."
+    },
+    {
+      "id": "art:fleet-config",
+      "type": "config",
+      "location": "fleet.config.json OR ~/.vibe-fleet/registry.json",
+      "entrypoint": null,
+      "invokedAs": null,
+      "ownership": "vibe-fleet (init/register/unregister write; status/doctor/report/extract/verify read)."
+    },
+    {
+      "id": "art:fleet-doc",
+      "type": "artifact",
+      "location": "FLEET.md, FLEET.docx, FLEET.html (same dir as fleet.config.json or --out)",
+      "entrypoint": null,
+      "invokedAs": null,
+      "ownership": "vibe-fleet report writes."
+    },
+    {
+      "id": "art:vibe-patterns",
+      "type": "artifact",
+      "location": "vibe-patterns/{field-mappings,connectors,adrs}/",
+      "entrypoint": null,
+      "invokedAs": null,
+      "ownership": "developer maintains; vibe-patterns CLI lists/applies; /migrate Mode A consumes."
     }
   ],
   "edges": [
@@ -711,6 +771,81 @@ Parse this directly. Each `node` has `id, type, location, entrypoint, invokedAs,
       "from": "vibe-toolkit-doc",
       "to": "docx",
       "type": "depends-on"
+    },
+    {
+      "from": "developer",
+      "to": "vibe-fleet",
+      "type": "invokes"
+    },
+    {
+      "from": "vibe-fleet",
+      "to": "art:fleet-config",
+      "type": "writes"
+    },
+    {
+      "from": "vibe-fleet",
+      "to": "art:vibe-history",
+      "type": "reads"
+    },
+    {
+      "from": "vibe-fleet",
+      "to": "art:vibe-pending-update",
+      "type": "reads"
+    },
+    {
+      "from": "vibe-fleet",
+      "to": "art:vibe-migration",
+      "type": "reads"
+    },
+    {
+      "from": "vibe-fleet",
+      "to": "art:power-config",
+      "type": "reads"
+    },
+    {
+      "from": "vibe-fleet",
+      "to": "art:context",
+      "type": "reads"
+    },
+    {
+      "from": "vibe-fleet",
+      "to": "vibe-extractor",
+      "type": "invokes"
+    },
+    {
+      "from": "vibe-fleet",
+      "to": "vibe-verifier",
+      "type": "invokes"
+    },
+    {
+      "from": "vibe-fleet",
+      "to": "art:fleet-doc",
+      "type": "writes"
+    },
+    {
+      "from": "vibe-fleet",
+      "to": "docx",
+      "type": "depends-on"
+    },
+    {
+      "from": "developer",
+      "to": "vibe-patterns",
+      "type": "invokes"
+    },
+    {
+      "from": "vibe-patterns",
+      "to": "art:vibe-patterns",
+      "type": "reads"
+    },
+    {
+      "from": "vibe-patterns",
+      "to": "art:adrs",
+      "type": "writes"
+    },
+    {
+      "from": "skill:migrate",
+      "to": "art:vibe-patterns",
+      "type": "reads"
     }
   ]
 }
@@ -763,7 +898,7 @@ Browser automation framework. Used by vibe-extractor to scrape Vibe and by vibe-
 
 npm package for producing .docx files. Used by vibe-reporter and vibe-toolkit-doc.
 
-### Type: `cli-tool` (4)
+### Type: `cli-tool` (6)
 
 #### `vibe-extractor`
 
@@ -807,6 +942,28 @@ Generates the toolkit's own system documentation (SYSTEM.md + SYSTEM.docx) — t
 | Location | `vibe-toolkit-doc/` |
 | Entrypoint | `node vibe-toolkit-doc/index.js` |
 | Dependencies | `docx` |
+
+#### `vibe-fleet`
+
+Multi-project orchestration. Maintains a registry of migrated projects (`fleet.config.json` or `~/.vibe-fleet/registry.json`) and shows their state on one screen. Drives batch extract/verify across the whole fleet and generates aggregated reports (FLEET.md/docx/html).
+
+| Field | Value |
+|---|---|
+| Location | `vibe-fleet/` |
+| Entrypoint | `node vibe-fleet/index.js` |
+| Flags | `init`, `register`, `unregister`, `list`, `status`, `doctor`, `extract`, `verify`, `report`, `--config`, `--alias`, `--tag`, `--global`, `--since`, `--headless`, `--no-report`, `--md-only`, `--html`, `--out`, `--stop-on-failure` |
+| Dependencies | `zod`, `docx` |
+
+#### `vibe-patterns`
+
+Shared knowledge base of reusable migration patterns: per-environment field mappings, connector configs, common ADR templates. New migrations inherit instead of re-discovering. Thin CLI; most use is by /migrate consuming patterns inline.
+
+| Field | Value |
+|---|---|
+| Location | `vibe-patterns/` |
+| Entrypoint | `node vibe-patterns/index.js` |
+| Flags | `list`, `show`, `apply`, `--to` |
+| Dependencies |  |
 
 ### Type: `skill` (10)
 
@@ -899,7 +1056,7 @@ Reference doc (not a slash command) describing the versioning policy: file owner
 |---|---|
 | Location | `skills/version-control.md` |
 
-### Type: `artifact` (13)
+### Type: `artifact` (15)
 
 #### `art:vibe-source`
 
@@ -1024,6 +1181,25 @@ System documentation for the toolkit itself (this document).
 | Location | `docs/SYSTEM.md, docs/SYSTEM.docx` |
 | Ownership | vibe-toolkit-doc writes. |
 
+#### `art:fleet-doc`
+
+Aggregated fleet documentation — every project on one screen. FLEET.md is git-trackable source; FLEET.docx for stakeholders; FLEET.html is a self-contained single-file dashboard with sortable tables.
+
+| Field | Value |
+|---|---|
+| Location | `FLEET.md, FLEET.docx, FLEET.html (same dir as fleet.config.json or --out)` |
+| Ownership | vibe-fleet report writes. |
+
+#### `art:vibe-patterns`
+
+Shared knowledge base. Reusable field mappings, connector configs, and ADR templates that new migrations inherit. Lives in the toolkit checkout, not in any individual project.
+
+| Field | Value |
+|---|---|
+| Location | `vibe-patterns/{field-mappings,connectors,adrs}/` |
+| Schema | field-mappings/*.json + connectors/*.json + adrs/*.md |
+| Ownership | developer maintains; vibe-patterns CLI lists/applies; /migrate Mode A consumes. |
+
 ### Type: `handoff` (1)
 
 #### `art:vibe-pending-update`
@@ -1036,7 +1212,7 @@ Short-lived diff manifest from extractor to /migrate. Presence triggers Mode B; 
 | Schema | { fromVersion, toVersion, extractedAt, changedFiles: { added, modified, deleted }, sourceDir, baselineDir, snapshotPath } |
 | Ownership | vibe-extractor writes; /migrate Mode B reads then deletes. |
 
-### Type: `config` (1)
+### Type: `config` (2)
 
 #### `art:power-config`
 
@@ -1047,6 +1223,16 @@ Per-project config that names the Power Platform environment, region, and (once 
 | Location | `[ProjectName]/power.config.json` |
 | Schema | { version, appDisplayName, region, environmentId, appId, localAppUrl, buildPath, buildEntryPoint } |
 | Ownership | developer + npx power-apps push. |
+
+#### `art:fleet-config`
+
+The fleet registry — lists every project vibe-fleet manages. Per-workspace (./fleet.config.json) or global (~/.vibe-fleet/registry.json). Stores alias, absolute path, registration date, optional tags.
+
+| Field | Value |
+|---|---|
+| Location | `fleet.config.json OR ~/.vibe-fleet/registry.json` |
+| Schema | { fleetName, createdAt, projects: [{ alias, path, registeredAt, lastSeen?, tags? }] } |
+| Ownership | vibe-fleet (init/register/unregister write; status/doctor/report/extract/verify read). |
 
 
 ## Data Flows
@@ -1127,6 +1313,21 @@ Per-project config that names the Power Platform environment, region, and (once 
 4. render-docx.js builds docs/PROJECT.docx (unless --md-only)
 5. developer commits both (optional — .docx is binary, some teams gitignore it)
 
+### Flow: Fleet operations (status + batch + report)
+
+**Trigger:** developer (or CI) runs a vibe-fleet command after onboarding many projects
+
+**Steps:**
+
+1. one-time: vibe-fleet init "<fleet name>" — creates fleet.config.json (or ~/.vibe-fleet/registry.json with --global)
+2. one-time per project: vibe-fleet register <path> — guards: path must contain vibe-history.json; alias must be unique
+3. daily: vibe-fleet status — probes every registered project (no lock held), prints table with health column + ⚠ legend for problems
+4. daily / CI: vibe-fleet doctor — same probes but exits 1 if any project has warnings; suitable as a CI gate
+5. when needed: vibe-fleet extract [--alias X] — sequentially invokes node vibe-extractor/index.js inside each project. Each project's vibe-lock prevents concurrent fleet runs from corrupting state
+6. when needed: vibe-fleet verify [--alias X] [--since vX.Y.Z] [--headless] — same shape, invokes vibe-verifier with --latest by default. Output is prefixed with [alias] for attribution
+7. weekly / before stakeholder meeting: vibe-fleet report [--html] — generates FLEET.md (always), FLEET.docx (default), FLEET.html (with --html). Health summary table, per-project cards, aggregated totals
+8. patterns: vibe-patterns list / show / apply consumed inline by /migrate Mode A when a new project starts — offers inherited field mappings / connector configs / ADRs
+
 
 ## Relationship Matrix
 
@@ -1139,13 +1340,14 @@ Reverse-lookup: for each target, who acts on it. AI agents can use this to answe
 |---|---|
 | `art:adrs` | `vibe-reporter` |
 | `art:auth-state` | `vibe-verifier` |
-| `art:context` | `vibe-reporter` |
+| `art:context` | `vibe-reporter`, `vibe-fleet` |
 | `art:power-code-project` | `vibe-reporter` |
-| `art:power-config` | `vibe-reporter` |
+| `art:power-config` | `vibe-reporter`, `vibe-fleet` |
 | `art:test-specs` | `vibe-verifier` |
-| `art:vibe-history` | `vibe-reporter` |
-| `art:vibe-migration` | `vibe-reporter` |
-| `art:vibe-pending-update` | `skill:migrate` |
+| `art:vibe-history` | `vibe-reporter`, `vibe-fleet` |
+| `art:vibe-migration` | `vibe-reporter`, `vibe-fleet` |
+| `art:vibe-patterns` | `vibe-patterns`, `skill:migrate` |
+| `art:vibe-pending-update` | `skill:migrate`, `vibe-fleet` |
 | `art:vibe-source` | `skill:migrate` |
 | `power-apps-player` | `vibe-verifier` |
 | `vibe-app` | `vibe-extractor` |
@@ -1154,8 +1356,10 @@ Reverse-lookup: for each target, who acts on it. AI agents can use this to answe
 
 | Target | Actors |
 |---|---|
-| `art:adrs` | `skill:migrate` |
+| `art:adrs` | `skill:migrate`, `vibe-patterns` |
 | `art:context` | `skill:migrate` |
+| `art:fleet-config` | `vibe-fleet` |
+| `art:fleet-doc` | `vibe-fleet` |
 | `art:power-code-project` | `skill:migrate` |
 | `art:project-doc` | `vibe-reporter` |
 | `art:system-doc` | `vibe-toolkit-doc` |
@@ -1187,9 +1391,11 @@ Reverse-lookup: for each target, who acts on it. AI agents can use this to answe
 | `skill:migrate` | `claude-code` |
 | `skill:migration-report` | `claude-code` |
 | `skill:verify-migration` | `claude-code` |
-| `vibe-extractor` | `developer` |
+| `vibe-extractor` | `developer`, `vibe-fleet` |
+| `vibe-fleet` | `developer` |
+| `vibe-patterns` | `developer` |
 | `vibe-reporter` | `developer`, `skill:migration-report` |
-| `vibe-verifier` | `developer`, `skill:verify-migration` |
+| `vibe-verifier` | `developer`, `skill:verify-migration`, `vibe-fleet` |
 
 ### `triggers`
 
@@ -1202,7 +1408,7 @@ Reverse-lookup: for each target, who acts on it. AI agents can use this to answe
 
 | Target | Actors |
 |---|---|
-| `docx` | `vibe-reporter`, `vibe-toolkit-doc` |
+| `docx` | `vibe-reporter`, `vibe-toolkit-doc`, `vibe-fleet` |
 | `gh-cli` | `vibe-verifier` |
 | `playwright` | `vibe-extractor`, `vibe-verifier` |
 
@@ -1278,6 +1484,38 @@ What changes when you modify or remove each significant component.
 **Critical invariants:**
 - Mode dispatch must be deterministic from filesystem state alone — never ask the developer which mode
 
+### `fleet.config.json`
+
+**If modified:** Hand-edits that break the schema cause every vibe-fleet command (except init) to fail with E_FLEET_SCHEMA_INVALID. Aliases must remain unique; paths must be absolute and contain vibe-history.json.
+
+**Breaks if removed:**
+- vibe-fleet status/doctor/report/extract/verify all fail with E_FLEET_NOT_FOUND
+
+**Critical invariants:**
+- projects[].alias is unique
+- projects[].path is absolute
+- each path contains vibe-history.json (validated at register time)
+
+### `vibe-fleet probe layer (lib/probe.js)`
+
+**If modified:** Every fleet command depends on probeProject(). Bugs here propagate to status, doctor, and report simultaneously.
+
+**Breaks if removed:**
+- Fleet operations entirely; the registry remains intact but no health classification is possible
+
+**Critical invariants:**
+- Probe NEVER takes a project lock — fleet ops are read-only across many projects; locking would create false-positive conflicts
+
+### `vibe-patterns/ directory`
+
+**If modified:** Each pattern is independent; a broken JSON file only affects projects that try to inherit it. Bad patterns surface during /migrate Mode A as JSON-parse errors with the file path.
+
+**Breaks if removed:**
+- No automatic inheritance — new migrations re-discover field mappings, connectors, ADRs from scratch. /migrate still works, just slower.
+
+**Critical invariants:**
+- NEVER store secrets — connection IDs are project-public; auth tokens/passwords/customer data are not
+
 ### `docs/SYSTEM.docx (this document)`
 
 **If modified:** Never edit directly — regenerate via `node vibe-toolkit-doc/index.js`. Edits to the model live in vibe-toolkit-doc/lib/system-model.js.
@@ -1288,5 +1526,5 @@ What changes when you modify or remove each significant component.
 
 ---
 
-_Generated by `vibe-toolkit-doc` at 2026-05-17 09:10:36 UTC._
+_Generated by `vibe-toolkit-doc` at 2026-05-17 14:51:43 UTC._
 _Edit the source model: `vibe-toolkit-doc/lib/system-model.js` — never edit this file directly._
