@@ -22,6 +22,8 @@ import { setupAuth, authStatus } from './lib/auth-setup.js';
 import { resolveScope } from './lib/version-filter.js';
 import { runPlaywright, recordResultsInHistory } from './lib/runner.js';
 import { reportFailures } from './lib/github-reporter.js';
+import { acquireLock, releaseLock, installSignalHandlers } from './lib/lock.js';
+import { ToolkitError } from './lib/errors.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIVIDER = '═'.repeat(58);
@@ -117,10 +119,26 @@ async function main() {
   console.log(`  Target  : ${appUrl}`);
 
   // ── Auth setup mode ───────────────────────────────────────────────────────
+  // Skips the project lock — auth setup only writes vibe-verifier/.auth/,
+  // not project state, and is interactive (may take many minutes).
   if (flags.setupAuth) {
     await setupAuth({ appUrl, log: console.log });
     return;
   }
+
+  // ── Acquire project lock for the run path ─────────────────────────────────
+  // Prevents two concurrent verifier runs from interleaving writes to
+  // vibe-history.json (testResults) on the same project.
+  try {
+    acquireLock({ projectRoot, command: 'vibe-verifier' });
+  } catch (err) {
+    if (err instanceof ToolkitError && err.code === 'E_LOCK_HELD') {
+      console.error('\n' + err.message);
+      process.exit(2);
+    }
+    throw err;
+  }
+  installSignalHandlers({ projectRoot });
 
   // ── Verify auth exists ────────────────────────────────────────────────────
   const auth = authStatus();
@@ -186,7 +204,12 @@ async function main() {
   if (results.failed > 0) process.exit(1);
 }
 
-main().catch(err => {
-  console.error('\nFatal error:', err.stack || err.message);
-  process.exit(1);
-});
+main()
+  .catch(err => {
+    console.error('\nFatal error:', err.stack || err.message);
+    process.exitCode = 1;
+  })
+  .finally(() => {
+    // Release lock if it was acquired (no-op if not). Safe to always call.
+    try { releaseLock({ projectRoot: process.cwd() }); } catch { /* best-effort */ }
+  });

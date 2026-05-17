@@ -15,6 +15,9 @@ export const ERROR_CODES = Object.freeze({
   E_PENDING_SCHEMA_INVALID: 'E_PENDING_SCHEMA_INVALID',
   E_MIGRATION_SCHEMA_INVALID: 'E_MIGRATION_SCHEMA_INVALID',
   E_JSON_PARSE_FAILED: 'E_JSON_PARSE_FAILED',
+
+  // Concurrency
+  E_LOCK_HELD: 'E_LOCK_HELD',
 });
 
 export class ToolkitError extends Error {

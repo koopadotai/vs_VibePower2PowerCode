@@ -16,6 +16,8 @@ import readline from 'readline';
 import path from 'path';
 import { extractVibeProject } from './extractor.js';
 import { runDiffAndVersion } from './lib/diff-and-version.js';
+import { acquireLock, releaseLock, installSignalHandlers } from './lib/lock.js';
+import { ToolkitError } from './lib/errors.js';
 
 const DIVIDER = '═'.repeat(56);
 
@@ -112,7 +114,26 @@ async function main() {
   console.log(`${DIVIDER}\n`);
 }
 
-main().catch(err => {
-  console.error('\nFatal error:', err.message);
-  process.exit(1);
-});
+// ── Top-level: acquire lock, run main, release in finally ────────────────────
+// projectRoot = CWD (where extraction artifacts land). Lock prevents two
+// concurrent extractor runs from corrupting vibe-history.json / vibe-baseline/.
+const projectRoot = process.cwd();
+try {
+  acquireLock({ projectRoot, command: 'vibe-extractor' });
+} catch (err) {
+  if (err instanceof ToolkitError && err.code === 'E_LOCK_HELD') {
+    console.error('\n' + err.message);
+    process.exit(2);
+  }
+  throw err;
+}
+installSignalHandlers({ projectRoot });
+
+main()
+  .catch(err => {
+    console.error('\nFatal error:', err.message);
+    process.exitCode = 1;
+  })
+  .finally(() => {
+    releaseLock({ projectRoot });
+  });

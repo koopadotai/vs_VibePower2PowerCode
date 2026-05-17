@@ -42,6 +42,7 @@ vibe-pending-update.json
 vibe-baseline/
 vibe-baselines-snapshots/
 vibe-migration.json
+vibe-lock
 tests/results/
 tests/specs/
 
