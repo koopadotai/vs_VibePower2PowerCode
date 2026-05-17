@@ -107,7 +107,8 @@ async function main() {
       force,
     });
   } catch (err) {
-    console.error(`  ! Version control step failed: ${err.message}`);
+    const code = err.code ? `[${err.code}] ` : '';
+    console.error(`  ! Version control step failed: ${code}${err.message}`);
     console.error('    (Extraction itself succeeded — files are at ' + outputDir + ')');
     process.exit(1);
   }

@@ -99,7 +99,8 @@ async function main() {
       fs.writeFileSync(docxPath, buf);
       console.log(`  ✓ Wrote ${path.relative(projectRoot, docxPath)} (${buf.length} bytes)`);
     } catch (err) {
-      console.error(`  ! Failed to render Word document: ${err.message}`);
+      const code = err.code ?? 'E_DOCX_RENDER_FAILED';
+      console.error(`  ! [${code}] Failed to render Word document: ${err.message}`);
       console.error('    The Markdown was still written successfully.');
     }
   }

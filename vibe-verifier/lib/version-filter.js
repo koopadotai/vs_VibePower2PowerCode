@@ -8,6 +8,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { ToolkitError, ERROR_CODES } from './errors.js';
 
 const SPECS_ROOT = 'tests/specs';
 const HISTORY_FILE = 'vibe-history.json';
@@ -51,7 +52,11 @@ export function resolveScope({ projectRoot = process.cwd(), scope }) {
     scope === 'latest' ||
     (typeof scope === 'string' && /^v?\d+\.\d+\.\d+$/.test(scope));
   if (!validScope) {
-    throw new Error(`Unknown scope: ${scope}. Use 'all', 'latest', or 'vX.Y.Z'.`);
+    throw new ToolkitError(
+      ERROR_CODES.E_SCOPE_INVALID,
+      `Unknown scope: ${scope}. Use 'all', 'latest', or 'vX.Y.Z'.`,
+      { scope },
+    );
   }
 
   const folders = listVersionFolders(projectRoot);

@@ -120,7 +120,11 @@ export function runPlaywright(opts) {
   // Playwright exits non-zero on test failure — that's not a runner error.
   // We rely on the JSON report to know what actually happened.
   if (!fs.existsSync(reportPath)) {
-    throw new Error(`Playwright did not produce a report at ${reportPath} (exit code ${result.status})`);
+    throw new ToolkitError(
+      ERROR_CODES.E_PLAYWRIGHT_NO_REPORT,
+      `Playwright did not produce a report at ${reportPath} (exit code ${result.status})`,
+      { reportPath, exitCode: result.status },
+    );
   }
 
   const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));

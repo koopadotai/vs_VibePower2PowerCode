@@ -18,6 +18,16 @@ export const ERROR_CODES = Object.freeze({
 
   // Concurrency
   E_LOCK_HELD: 'E_LOCK_HELD',
+
+  // Configuration / state
+  E_CONFIG_NOT_FOUND: 'E_CONFIG_NOT_FOUND',           // power.config.json missing
+  E_CONFIG_INCOMPLETE: 'E_CONFIG_INCOMPLETE',         // power.config.json missing required fields
+  E_AUTH_NOT_FOUND: 'E_AUTH_NOT_FOUND',               // verifier auth state never set up
+
+  // Runtime
+  E_SCOPE_INVALID: 'E_SCOPE_INVALID',                 // --since vX.Y.Z bad value
+  E_PLAYWRIGHT_NO_REPORT: 'E_PLAYWRIGHT_NO_REPORT',   // playwright crashed before writing JSON
+  E_DOCX_RENDER_FAILED: 'E_DOCX_RENDER_FAILED',       // docx library threw during render
 });
 
 export class ToolkitError extends Error {

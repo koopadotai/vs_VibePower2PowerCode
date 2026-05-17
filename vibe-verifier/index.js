@@ -23,7 +23,7 @@ import { resolveScope } from './lib/version-filter.js';
 import { runPlaywright, recordResultsInHistory } from './lib/runner.js';
 import { reportFailures } from './lib/github-reporter.js';
 import { acquireLock, releaseLock, installSignalHandlers } from './lib/lock.js';
-import { ToolkitError } from './lib/errors.js';
+import { ToolkitError, ERROR_CODES } from './lib/errors.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIVIDER = '═'.repeat(58);
@@ -43,7 +43,11 @@ function findPowerConfig(projectRoot) {
 function constructAppUrl(powerConfigPath) {
   const cfg = JSON.parse(fs.readFileSync(powerConfigPath, 'utf8'));
   if (!cfg.environmentId || !cfg.appId) {
-    throw new Error(`power.config.json at ${powerConfigPath} is missing environmentId or appId.`);
+    throw new ToolkitError(
+      ERROR_CODES.E_CONFIG_INCOMPLETE,
+      `power.config.json at ${powerConfigPath} is missing environmentId or appId.`,
+      { powerConfigPath, missing: ['environmentId', 'appId'].filter(k => !cfg[k]) },
+    );
   }
   return `https://apps.powerapps.com/play/e/${cfg.environmentId}/a/${cfg.appId}`;
 }
@@ -100,13 +104,14 @@ async function main() {
   if (!appUrl) {
     const cfg = findPowerConfig(projectRoot);
     if (!cfg) {
-      console.error('  ! No power.config.json found at project root or one level down.');
+      console.error(`  ! [${ERROR_CODES.E_CONFIG_NOT_FOUND}] No power.config.json found at project root or one level down.`);
       console.error('    Provide --app-url <URL> or set VIBE_VERIFY_APP_URL.');
       process.exit(1);
     }
     try { appUrl = constructAppUrl(cfg); }
     catch (err) {
-      console.error(`  ! ${err.message}`);
+      const code = err.code ? `[${err.code}] ` : '';
+      console.error(`  ! ${code}${err.message}`);
       console.error('    Provide --app-url <URL> to override.');
       process.exit(1);
     }
@@ -143,7 +148,7 @@ async function main() {
   // ── Verify auth exists ────────────────────────────────────────────────────
   const auth = authStatus();
   if (!auth.exists) {
-    console.error('  ! No saved auth — run with --setup-auth first.');
+    console.error(`  ! [${ERROR_CODES.E_AUTH_NOT_FOUND}] No saved auth — run with --setup-auth first.`);
     process.exit(1);
   }
   console.log(`  Auth    : ${path.relative(projectRoot, auth.statePath)} (${auth.ageDays} day${auth.ageDays === 1 ? '' : 's'} old)`);
@@ -176,7 +181,8 @@ async function main() {
       projectRoot,
     });
   } catch (err) {
-    console.error(`  ! Runner failed: ${err.message}`);
+    const code = err.code ? `[${err.code}] ` : '';
+    console.error(`  ! Runner failed: ${code}${err.message}`);
     process.exit(1);
   }
 
