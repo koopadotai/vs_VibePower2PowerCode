@@ -15,10 +15,32 @@
 
 import fs from 'fs';
 import path from 'path';
+import { parseHistory, parseMigration } from './schemas.js';
 
 function readJsonSafe(p) {
   if (!fs.existsSync(p)) return null;
   try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return null; }
+}
+
+/**
+ * Read + validate a project-state JSON file. Returns null if the file is
+ * missing OR if validation fails (the reporter is read-only and should
+ * degrade gracefully — log a warning, continue with empty sections).
+ */
+function readValidated(p, parser, label) {
+  if (!fs.existsSync(p)) return null;
+  try {
+    return parser(fs.readFileSync(p, 'utf8'), p);
+  } catch (err) {
+    // Surface but don't crash — generation must succeed even with partial data.
+    console.warn(`  ! ${label} failed validation at ${p}: ${err.code ?? err.message}`);
+    if (err.details?.issues) {
+      for (const issue of err.details.issues.slice(0, 5)) {
+        console.warn(`    ${issue.path.join('.') || '(root)'}: ${issue.message}`);
+      }
+    }
+    return null;
+  }
 }
 
 function readTextSafe(p) {
@@ -129,8 +151,8 @@ function readProjectPackage(powerCodeDir) {
  * @returns {object}  The complete data bundle for renderers
  */
 export function collect({ projectRoot = process.cwd() } = {}) {
-  const history = readJsonSafe(path.join(projectRoot, 'vibe-history.json'));
-  const migration = readJsonSafe(path.join(projectRoot, 'vibe-migration.json'));
+  const history = readValidated(path.join(projectRoot, 'vibe-history.json'), parseHistory, 'vibe-history.json');
+  const migration = readValidated(path.join(projectRoot, 'vibe-migration.json'), parseMigration, 'vibe-migration.json');
   const contextMd = readTextSafe(path.join(projectRoot, 'CONTEXT.md'));
   const powerCodeDir = findPowerCodeProject(projectRoot);
   const powerConfig = powerCodeDir ? readJsonSafe(path.join(powerCodeDir, 'power.config.json')) : null;

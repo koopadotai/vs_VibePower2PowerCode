@@ -14,6 +14,8 @@ import { spawnSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { parseHistory, vibeHistorySchema } from './schemas.js';
+import { ToolkitError, ERROR_CODES, formatZodIssues } from './errors.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const VERIFIER_DIR = path.resolve(__dirname, '..');
@@ -165,7 +167,8 @@ export function recordResultsInHistory({ projectRoot = process.cwd(), versionLab
   // versionLabel can be 'v1.1.0' or 'all' — only record per-version runs.
   if (!/^v\d+\.\d+\.\d+$/.test(versionLabel)) return;
 
-  const history = JSON.parse(fs.readFileSync(p, 'utf8'));
+  // Validate on read — surface corruption loudly rather than silently skipping.
+  const history = parseHistory(fs.readFileSync(p, 'utf8'), p);
   const version = versionLabel.slice(1);
   const entry = history.versions?.find(v => v.version === version);
   if (!entry) return;
@@ -177,5 +180,15 @@ export function recordResultsInHistory({ projectRoot = process.cwd(), versionLab
     skipped: results.skipped,
     durationMs: results.durationMs,
   };
-  fs.writeFileSync(p, JSON.stringify(history, null, 2) + '\n', 'utf8');
+
+  // Validate before writing — never let the verifier emit invalid history.
+  const validation = vibeHistorySchema.safeParse(history);
+  if (!validation.success) {
+    throw new ToolkitError(
+      ERROR_CODES.E_HISTORY_SCHEMA_INVALID,
+      `Refusing to write invalid vibe-history.json:\n${formatZodIssues(validation.error)}`,
+      { sourcePath: p, issues: validation.error.issues },
+    );
+  }
+  fs.writeFileSync(p, JSON.stringify(validation.data, null, 2) + '\n', 'utf8');
 }

@@ -17,6 +17,8 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import { parseHistory, parsePendingUpdate, vibeHistorySchema, vibePendingUpdateSchema } from './schemas.js';
+import { ToolkitError, ERROR_CODES, formatZodIssues } from './errors.js';
 
 const SNAPSHOTS_DIR = 'vibe-baselines-snapshots';
 const BASELINE_DIR = 'vibe-baseline';
@@ -145,7 +147,34 @@ function bumpVersion(current, level) {
 
 function readHistory(historyPath) {
   if (!fs.existsSync(historyPath)) return null;
-  try { return JSON.parse(fs.readFileSync(historyPath, 'utf8')); } catch { return null; }
+  const raw = fs.readFileSync(historyPath, 'utf8');
+  // parseHistory throws ToolkitError on schema violation — surface it.
+  return parseHistory(raw, historyPath);
+}
+
+function writeHistorySafely(historyPath, data) {
+  // Validate before writing — never let the extractor emit invalid data.
+  const validation = vibeHistorySchema.safeParse(data);
+  if (!validation.success) {
+    throw new ToolkitError(
+      ERROR_CODES.E_HISTORY_SCHEMA_INVALID,
+      `Refusing to write invalid vibe-history.json:\n${formatZodIssues(validation.error)}`,
+      { sourcePath: historyPath, issues: validation.error.issues },
+    );
+  }
+  fs.writeFileSync(historyPath, JSON.stringify(validation.data, null, 2) + '\n', 'utf8');
+}
+
+function writePendingUpdateSafely(pendingPath, data) {
+  const validation = vibePendingUpdateSchema.safeParse(data);
+  if (!validation.success) {
+    throw new ToolkitError(
+      ERROR_CODES.E_PENDING_SCHEMA_INVALID,
+      `Refusing to write invalid vibe-pending-update.json:\n${formatZodIssues(validation.error)}`,
+      { sourcePath: pendingPath, issues: validation.error.issues },
+    );
+  }
+  fs.writeFileSync(pendingPath, JSON.stringify(validation.data, null, 2) + '\n', 'utf8');
 }
 
 function currentVersion(history) {
@@ -257,7 +286,7 @@ export function runDiffAndVersion(opts) {
   };
   const nextHistory = history ?? { projectName: path.basename(root), versions: [] };
   nextHistory.versions.push(entry);
-  fs.writeFileSync(historyPath, JSON.stringify(nextHistory, null, 2) + '\n', 'utf8');
+  writeHistorySafely(historyPath, nextHistory);
 
   // Write pending manifest for /migrate Mode B.
   const pending = {
@@ -269,7 +298,7 @@ export function runDiffAndVersion(opts) {
     baselineDir: BASELINE_DIR,
     snapshotPath: entry.snapshotPath,
   };
-  fs.writeFileSync(pendingPath, JSON.stringify(pending, null, 2) + '\n', 'utf8');
+  writePendingUpdateSafely(pendingPath, pending);
 
   // Friendly summary.
   log('');
