@@ -47,7 +47,7 @@ function parseArgs(argv) {
     // Pass-through flags for verify/extract subprocesses
     headless: false, noReport: false, since: null, major: false, force: false, stopOnFirstFailure: false,
     // report
-    mdOnly: false, out: null,
+    mdOnly: false, html: false, out: null,
   };
   let i = 0;
   while (i < argv.length) {
@@ -63,6 +63,7 @@ function parseArgs(argv) {
     else if (a === '--force')   { out.force = true; }
     else if (a === '--stop-on-failure') { out.stopOnFirstFailure = true; }
     else if (a === '--md-only') { out.mdOnly = true; }
+    else if (a === '--html')    { out.html = true; }
     else if (a === '--out')     { out.out = argv[++i]; }
     else if (a === '--help' || a === '-h') { out.help = true; }
     else if (out.command == null) { out.command = a; }
@@ -87,7 +88,9 @@ function printHelp() {
     extract [--alias X]               Run vibe-extractor on each project (sequential, interactive)
     verify [--alias X] [--since vX.Y.Z] [--headless] [--no-report]
                                       Run vibe-verifier on each project
-    report [--md-only] [--out DIR]    Generate FLEET.md (and FLEET.docx unless --md-only)
+    report [--md-only|--html] [--out DIR]
+                                      Generate FLEET.md (always), FLEET.docx (unless --md-only),
+                                      and FLEET.html (if --html, single self-contained file)
                                       Default output dir: same dir as the fleet config
 
   Global options:
@@ -275,6 +278,15 @@ async function cmdReport({ args, configPath, configSource }) {
   const mdPath = path.join(outDir, 'FLEET.md');
   fsP.writeFileSync(mdPath, md, 'utf8');
   console.log(`  ✓ Wrote ${path.relative(process.cwd(), mdPath)} (${md.length} chars)`);
+
+  // HTML (no extra dep — pure templating).
+  if (args.html) {
+    const { renderFleetHtml } = await import('./lib/render-fleet-html.js');
+    const html = renderFleetHtml(data);
+    const htmlPath = path.join(outDir, 'FLEET.html');
+    fsP.writeFileSync(htmlPath, html, 'utf8');
+    console.log(`  ✓ Wrote ${path.relative(process.cwd(), htmlPath)} (${html.length} chars)`);
+  }
 
   if (args.mdOnly) return;
 
