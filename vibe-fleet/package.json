@@ -1,0 +1,18 @@
+{
+  "name": "vibe-fleet",
+  "version": "1.0.0",
+  "description": "Multi-project orchestration for VibePower2PowerCode — registry-based fleet view across many migrated projects",
+  "type": "module",
+  "main": "index.js",
+  "bin": {
+    "vibe-fleet": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "status": "node index.js status",
+    "doctor": "node index.js doctor"
+  },
+  "dependencies": {
+    "zod": "^3.23.0"
+  }
+}
