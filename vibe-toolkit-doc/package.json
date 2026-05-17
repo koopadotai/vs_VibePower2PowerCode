@@ -1,0 +1,17 @@
+{
+  "name": "vibe-toolkit-doc",
+  "version": "1.0.0",
+  "description": "Generate the VibePower2PowerCode system documentation (docs/SYSTEM.md + docs/SYSTEM.docx) with structured AI-readable Solution Graph",
+  "type": "module",
+  "main": "index.js",
+  "bin": {
+    "vibe-toolkit-doc": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "generate": "node index.js"
+  },
+  "dependencies": {
+    "docx": "^9.0.0"
+  }
+}
