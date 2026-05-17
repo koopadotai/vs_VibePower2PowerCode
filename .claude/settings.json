@@ -17,7 +17,7 @@
   "skills": [
     {
       "name": "migrate",
-      "description": "Start a full AI-guided migration from Vibe to Power Code",
+      "description": "Bring a Vibe app into Power Code. Auto-detects mode: first-time migration (Mode A), incremental update from a vibe-pending-update.json (Mode B), or up-to-date no-op (Mode C). Same command for the first run and every subsequent re-extraction.",
       "path": "skills/migrate.md"
     },
     {
@@ -36,9 +36,19 @@
       "path": "skills/grill-with-docs.md"
     },
     {
-      "name": "update",
-      "description": "Apply incremental changes from a re-downloaded Vibe source to an already-migrated Power Code project — only updates what actually changed",
-      "path": "skills/update.md"
+      "name": "verify-migration",
+      "description": "Generate + run + diagnose Playwright tests against the deployed Power Apps player. Auto-creates GitHub issues on failure. Scoped to a vibe-history.json version.",
+      "path": "skills/verify-migration.md"
+    },
+    {
+      "name": "version-control",
+      "description": "Reference doc for the Vibe→Power Code versioning policy: file ownership, manifest schemas, snapshot rotation, semver rules.",
+      "path": "skills/version-control.md"
+    },
+    {
+      "name": "migration-report",
+      "description": "Generate comprehensive project documentation (docs/PROJECT.md + docs/PROJECT.docx) from vibe-history.json, CONTEXT.md, ADRs, and the Power Code project. Triggered at end of /migrate (both modes), or standalone for stakeholder/audit purposes.",
+      "path": "skills/migration-report.md"
     }
   ]
 }

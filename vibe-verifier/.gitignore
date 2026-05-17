@@ -1,0 +1,7 @@
+# Saved Microsoft account session — contains auth tokens
+.auth/
+
+# Playwright artifacts
+node_modules/
+test-results/
+playwright-report/

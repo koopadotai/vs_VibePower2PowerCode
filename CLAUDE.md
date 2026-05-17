@@ -17,6 +17,16 @@ You guide the migration through 8 steps. Some steps you execute directly. Some r
 - Capture resolved terms into `CONTEXT.md` immediately — never batch
 - Create ADRs only when a decision is hard to reverse, non-obvious, and resulted from real trade-offs
 
+**Other skills available in `skills/`:**
+- `migrate.md` — the single entry point for both first-time migration and every subsequent re-extraction. Auto-detects mode by project state: **Mode A** (no `vibe-history.json` → first-run, full setup), **Mode B** (`vibe-pending-update.json` present → incremental apply), **Mode C** (history exists, no pending → up to date). Same `/migrate` command in all three cases.
+- `map-fields.md`, `add-connector.md` — migration helpers, invoked from inside `/migrate` when needed
+- `version-control.md` — Vibe→Power Code versioning policy. `node vibe-extractor/index.js` produces a `vibe-pending-update.json` describing what changed since the last applied baseline. `/migrate` Mode B reads that manifest and only touches the listed files. **See this file before touching anything related to versions, baselines, snapshots, or re-extractions.**
+- `verify-migration.md` — generate + run + diagnose Playwright tests against the deployed Power Apps player, scoped to a `vibe-history.json` version. Pops a real browser window. Auto-creates GitHub issues on failure via `gh`. Triggered at end of `/migrate` (in either mode), or standalone via `/verify-migration`.
+- `migration-report.md` — generate comprehensive project documentation (`docs/PROJECT.md` + `docs/PROJECT.docx`) covering overview, architecture, full migration history with per-version detail, field mappings, connectors, ADRs, file ownership, dependencies. Triggered at end of `/migrate` (both modes) or standalone via `/migration-report`. Runs `node vibe-reporter/index.js`.
+- `diagnose.md` — disciplined diagnosis loop for hard bugs and performance regressions (use when the developer reports something is broken, throwing, or failing — especially TypeScript errors after Step 8, CSP/`fetch()` errors in the Power Apps player, or field-mapping bugs)
+- `handoff.md` — compact the current conversation into a handoff doc when context grows long or work needs to continue in a fresh session
+- `karpathy-guidelines.md` — four behavioural rules (Think Before Coding, Simplicity First, Surgical Changes, Goal-Driven Execution) to apply during reasoning-heavy migration steps (Step 3 extraction, Step 4 adapter layer, Step 8 TypeScript fixes)
+
 ---
 
 ## The Two Projects
@@ -35,7 +45,7 @@ You guide the migration through 8 steps. Some steps you execute directly. Some r
 ## Migration Steps
 
 ### Step 0 — Silent Prerequisites Check
-**Who:** You (AI) — runs automatically before every `/migrate` and `/update`
+**Who:** You (AI) — runs automatically at the start of every `/migrate` (all modes)
 
 Before doing anything else, silently run the setup checker:
 
@@ -88,59 +98,21 @@ Update `power.config.json` with their `environmentId` and `localAppUrl`.
 
 ---
 
-### Step 3 — Extract Clean TypeScript from Vibe Source
-**Who:** You (AI) — this requires reasoning
+### Step 3 — Copy Clean TypeScript into the Power Code Project
+**Who:** You (AI)
 
-The files in `./vibe-source/` are **Vite-transformed** — they contain HMR (Hot Module Replacement) code injected at the top and Vite internal imports (`/node_modules/.vite/deps/...`). They cannot be used directly.
+**Since the version-control feature, `./vibe-source/` already contains clean TypeScript.** `node vibe-extractor/index.js` decoded the inline source maps for you (`vibe-extractor/lib/diff-and-version.js`). The PowerShell extraction script that used to live here is no longer needed.
 
-**How to detect transformed files:** Look for `__vite__createHotContext` at the top of the file.
+Just copy the relevant files from `./vibe-source/src/` into `./[ProjectName]/src/`:
 
-**How to extract original TypeScript:**
-Every transformed file contains the original source inside a base64-encoded inline source map:
-```
-//# sourceMappingURL=data:application/json;base64,<BASE64>
-```
-Decode: base64 → JSON → `sourcesContent[0]` = original TypeScript.
-
-**Special cases you must handle:**
-- `index.css` — wrapped in a JS template literal: `const __vite__css = "...";` — parse the string value
-- Files with no source map and no HMR code — copy directly (already clean)
-- Files with no source map but HMR code — original source is lost; reconstruct from context
-
-**What to skip:** The `generated/` folder in vibe-source — the Power Code project will have its own generated files with Dataverse raw field names.
-
-**Run a PowerShell extraction script** to automate this. Write and execute:
 ```powershell
-$srcDir = ".\vibe-source\src"
-$destDir = ".\[ProjectName]\src"
-
-Get-ChildItem -Recurse -Path $srcDir -Include "*.tsx","*.ts" | ForEach-Object {
-    $relativePath = $_.FullName.Substring($srcDir.Length + 1)
-    if ($relativePath -match '^generated[\\/]') { return }
-    
-    $content = [System.IO.File]::ReadAllText($_.FullName)
-    $destPath = Join-Path $destDir $relativePath
-    New-Item -ItemType Directory -Path (Split-Path $destPath) -Force | Out-Null
-    
-    if ($content -match '//# sourceMappingURL=data:application/json;base64,([A-Za-z0-9+/=]+)') {
-        try {
-            $map = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($Matches[1])) | ConvertFrom-Json
-            if ($map.sourcesContent -and $map.sourcesContent.Count -gt 0) {
-                [System.IO.File]::WriteAllText($destPath, $map.sourcesContent[0], [System.Text.Encoding]::UTF8)
-                return
-            }
-        } catch {}
-    }
-    if ($content -notmatch '__vite__createHotContext') {
-        [System.IO.File]::WriteAllText($destPath, $content, [System.Text.Encoding]::UTF8)
-    }
-}
+# Skip the generated/ folder — Power Code generates its own with Dataverse raw names
+Copy-Item -Recurse -Force ".\vibe-source\src\*" ".\[ProjectName]\src\" -Exclude "generated"
 ```
 
-For `index.css` (wrapped in JS), extract the CSS string separately:
-```powershell
-# Parse __vite__css = "..." and write as plain CSS
-```
+**Edge case:** If a file in `vibe-source/` still contains `__vite__createHotContext` at the top (Node couldn't recover the original source from its map), the file's original source was lost. Reconstruct it from context or ask the developer.
+
+**What to skip:** The `generated/` folder — the Power Code project will create its own with Dataverse raw field names.
 
 ---
 
@@ -352,15 +324,18 @@ Fix all errors until `npx tsc --noEmit` produces no output.
 
 ---
 
-### After Migration — Save Baseline for Future Updates
+### After Migration — Initialise Version Control
 
-Once the app builds and pushes successfully, run the baseline-saving steps from `skills/migrate.md`. This enables `/update` to work on future re-downloads.
+Once the app builds and pushes successfully, run the version-control init steps from `skills/migrate.md` (Mode A, sub-section A.3 and A.4). This enables future incremental `/migrate` (Mode B) runs and seeds the project at version 1.0.0.
 
 Creates:
-- `./vibe-baseline/` — clean TypeScript snapshot of the Vibe source at this point in time
+- `./vibe-baseline/` — live baseline (clean TypeScript reference for the next diff)
+- `./vibe-baselines-snapshots/v1.0.0/` — permanent snapshot of v1.0.0
+- `./vibe-history.json` — version audit log
 - `./vibe-migration.json` — manifest recording which Power Code files are Vibe-owned vs migration-owned
+- `[ProjectName]/package.json` `version` set to `1.0.0`
 
-**Without these two files, `/update` cannot run.**
+**Without these files, future `/migrate` (Mode B) runs cannot work.** See [skills/version-control.md](skills/version-control.md) for the full policy.
 
 ---
 
@@ -395,6 +370,9 @@ After first successful push, `power.config.json` is updated automatically with t
 3. **Never use direct `fetch()`** in the deployed app — the player's CSP blocks it. Use `executeAsync({ connectorOperation })` for connectors, or Dataverse CRUD methods for Dataverse
 4. **The `generated/` folder is always split:** Vibe's generated layer (friendly names) is the adapter; Power Code's generated layer (Dataverse names) is the source of truth
 5. **Field mapping is never assumed** — always inspect both schemas and ask when ambiguous
+6. **Version control is owned by Node, not the AI** — `node vibe-extractor/index.js` produces the diff, bumps the version, and writes `vibe-pending-update.json`. `/migrate` Mode B only consumes the manifest and applies changes to the listed files. If `vibe-pending-update.json` is absent in Mode B, the skill enters Mode C and tells the user to run the extractor first — it does **not** re-diff. See `skills/version-control.md`.
+7. **Never edit `vibe-history.json` or `vibe-pending-update.json` by hand** — both are mechanically generated. `/migrate` Mode B writes the `note` field in the latest history entry and deletes the pending manifest on success; everything else is owned by the extractor.
+8. **Verification tests live in `tests/specs/v{version}/` and target the deployed app** — generated by `/verify-migration`, run by `node vibe-verifier/index.js`. Never edit `vibe-verifier/.auth/` (gitignored, contains auth tokens). Generated tests must be reviewed by the developer (the `// Reviewed: not yet` comment flips to `yes` after review) before being trusted as correctness baselines. See `skills/verify-migration.md`.
 
 ---
 

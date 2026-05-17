@@ -14,9 +14,11 @@ When you build an app on **make.powerapp.com**, it runs on Vibe — Microsoft's 
 - Routing uses `BrowserRouter` which fails inside the Power Apps player iframe
 
 This toolkit provides:
-- **`vibe-extractor/`** — Playwright tool to download your Vibe source code
+- **`vibe-extractor/`** — Playwright tool to download your Vibe source code (also handles version-control: diffs new extractions vs the last baseline and writes a pending-update manifest)
+- **`vibe-verifier/`** — Playwright-based test runner that pops a browser, runs version-scoped specs against the deployed Power Apps player, and auto-raises GitHub issues on failure
+- **`vibe-reporter/`** — Generates comprehensive project documentation (`PROJECT.md` + `PROJECT.docx`) from `vibe-history.json`, `CONTEXT.md`, and the migrated project
 - **`CLAUDE.md`** — Instructions that teach Claude Code how to migrate any Vibe app
-- **`skills/`** — Claude Code slash commands (`/migrate`, `/map-fields`, `/add-connector`)
+- **`skills/`** — Claude Code slash commands: `/migrate` (single entry point — auto-detects first-time vs incremental), `/verify-migration`, `/migration-report`, `/map-fields`, `/add-connector`, `/grill-with-docs`
 - **`docs/`** — Complete migration guide and troubleshooting reference
 
 ---
@@ -119,11 +121,15 @@ vs_VibePower2PowerCode/
 │   ├── extract.js             ← Manual extraction (fallback)
 │   └── console-extract.js     ← Browser console script (fallback)
 ├── skills/
-│   ├── migrate.md             ← /migrate — full migration wizard
-│   ├── update.md              ← /update — incremental update after Vibe changes
+│   ├── migrate.md             ← /migrate — auto-detects first-run, incremental, or up-to-date
+│   ├── version-control.md     ← versioning policy reference (manifests, snapshots, semver)
+│   ├── verify-migration.md    ← /verify-migration — generate + run Playwright tests
 │   ├── map-fields.md          ← /map-fields — field name discovery
 │   ├── add-connector.md       ← /add-connector — connector setup
 │   └── grill-with-docs.md     ← /grill-with-docs — structured design review protocol
+├── vibe-verifier/             ← Playwright test runner (parallel to vibe-extractor)
+│   ├── index.js               ← CLI: --setup-auth, --latest, --since vX.Y.Z
+│   └── lib/                   ← auth, version filter, runner, GitHub reporter
 ├── scripts/
 │   └── check-setup.ps1        ← Idempotent prerequisite checker (runs silently)
 ├── docs/
@@ -139,22 +145,28 @@ vs_VibePower2PowerCode/
 
 ## Updating After Vibe Changes
 
-Made changes in make.powerapp.com and want to re-deploy? You don't need to re-migrate everything.
+Made changes in make.powerapp.com and want to re-deploy? **Same command, different mode.** `/migrate` auto-detects what to do based on project state.
 
 ### 1. Re-extract the new Vibe source
 ```powershell
 cd vibe-extractor
 node index.js
 # vibe-source/ is replaced with the new download
+# If anything changed since the last baseline, vibe-pending-update.json is written
 ```
 
-### 2. Ask Claude Code to apply only the changes
+### 2. Run /migrate again — it picks the right mode
 ```
-/update
+/migrate
 ```
 
-Claude Code will:
-- Diff the new Vibe source against `vibe-baseline/` (saved after your first migration)
+The skill inspects the project state and dispatches:
+- **Mode A** (first time, no `vibe-history.json`): full setup
+- **Mode B** (`vibe-pending-update.json` present): apply only the listed file changes, bump version, ask about verification tests
+- **Mode C** (history exists, no pending): "you're up to date"
+
+In Mode B Claude Code will:
+- Read the pending manifest written by the extractor
 - Identify which files actually changed
 - Update only those files in your Power Code project
 - Skip files that were modified during migration (routing fix, connector code, adapter layer)
@@ -167,7 +179,7 @@ npm run build
 npx power-apps push
 ```
 
-**How it knows what changed:** After your first `/migrate`, the toolkit saves `vibe-baseline/` (clean TypeScript snapshot) and `vibe-migration.json` (ownership manifest). Every `/update` diffs the new download against the baseline and updates the baseline on success.
+**How it knows what changed:** the `node index.js` extractor maintains `vibe-baseline/` (clean TypeScript) and `vibe-history.json` (version log). When it detects a diff, it writes `vibe-pending-update.json` describing exactly which files changed. `/migrate` Mode B reads that manifest — no re-diffing in the AI layer. See [skills/version-control.md](skills/version-control.md) for the full policy.
 
 ---
 

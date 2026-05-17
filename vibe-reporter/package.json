@@ -1,0 +1,17 @@
+{
+  "name": "vibe-reporter",
+  "version": "1.0.0",
+  "description": "Generate comprehensive project documentation (.md + .docx) from vibe-history.json, CONTEXT.md, and the migrated Power Code project",
+  "type": "module",
+  "main": "index.js",
+  "bin": {
+    "vibe-report": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "report": "node index.js"
+  },
+  "dependencies": {
+    "docx": "^9.0.0"
+  }
+}

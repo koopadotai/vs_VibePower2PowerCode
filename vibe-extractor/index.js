@@ -5,6 +5,8 @@
  * Usage:
  *   node index.js                         ← interactive prompts
  *   node index.js <project-name> <url>    ← non-interactive
+ *   node index.js <project-name> <url> --major    ← major version bump
+ *   node index.js <project-name> <url> --force    ← discard existing pending manifest
  *
  * Example:
  *   node index.js dice-game "https://vibe.powerapps.com/e/.../app"
@@ -13,6 +15,7 @@
 import readline from 'readline';
 import path from 'path';
 import { extractVibeProject } from './extractor.js';
+import { runDiffAndVersion } from './lib/diff-and-version.js';
 
 const DIVIDER = '═'.repeat(56);
 
@@ -32,9 +35,15 @@ async function main() {
   console.log('  Power Apps Vibe — Source Extractor');
   console.log(`${DIVIDER}\n`);
 
+  // ── Parse flags ───────────────────────────────────────────────────────────
+  const flags = process.argv.slice(2).filter(a => a.startsWith('--'));
+  const positional = process.argv.slice(2).filter(a => !a.startsWith('--'));
+  const bumpLevel = flags.includes('--major') ? 'major' : flags.includes('--patch') ? 'patch' : 'minor';
+  const force = flags.includes('--force');
+
   // ── Collect inputs ────────────────────────────────────────────────────────
-  let projectName = process.argv[2]?.trim();
-  let vibeUrl     = process.argv[3]?.trim();
+  let projectName = positional[0]?.trim();
+  let vibeUrl     = positional[1]?.trim();
 
   if (!projectName) {
     projectName = await ask('  Project name  (e.g. dice-game): ');
@@ -80,6 +89,27 @@ async function main() {
   console.log(`${DIVIDER}\n`);
 
   if (result.failed > 0) process.exit(1);
+
+  // ── Diff + version + snapshot ─────────────────────────────────────────────
+  // Looks for ./vibe-baseline/ at CWD. If absent → first run (do nothing,
+  // /migrate will create it). If present → compute diff against new extraction,
+  // bump version, snapshot, write pending manifest for /migrate Mode B.
+  console.log(`${DIVIDER}`);
+  console.log('  Version control');
+  console.log(`${DIVIDER}`);
+  try {
+    runDiffAndVersion({
+      extractedRawDir: outputDir,
+      projectRoot: process.cwd(),
+      level: bumpLevel,
+      force,
+    });
+  } catch (err) {
+    console.error(`  ! Version control step failed: ${err.message}`);
+    console.error('    (Extraction itself succeeded — files are at ' + outputDir + ')');
+    process.exit(1);
+  }
+  console.log(`${DIVIDER}\n`);
 }
 
 main().catch(err => {

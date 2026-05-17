@@ -1,0 +1,19 @@
+{
+  "name": "vibe-verifier",
+  "version": "1.0.0",
+  "description": "Verify a migrated Power Code app behaves as expected, scoped to vibe-history.json versions",
+  "type": "module",
+  "main": "index.js",
+  "bin": {
+    "vibe-verify": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "verify": "node index.js",
+    "setup-auth": "node index.js --setup-auth"
+  },
+  "dependencies": {
+    "@playwright/test": "^1.44.0",
+    "playwright": "^1.44.0"
+  }
+}
