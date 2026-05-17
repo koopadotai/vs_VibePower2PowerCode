@@ -94,12 +94,13 @@ export function runPlaywright(opts) {
     VIBE_VERIFY_BASE_URL: opts.appUrl,
     VIBE_VERIFY_STORAGE_STATE: opts.storageState ?? '',
     VIBE_VERIFY_OUTPUT_DIR: outputDir,
+    VIBE_VERIFY_TEST_DIR: path.join(projectRoot, 'tests', 'specs'),
     PLAYWRIGHT_JSON_OUTPUT_NAME: reportPath,
   };
 
   const args = [
     'playwright', 'test',
-    '--config', path.join(projectRoot, 'tests', 'playwright.config.ts'),
+    '--config', path.join(VERIFIER_DIR, 'playwright.config.ts'),
     '--reporter', `list,json`,
     ...(opts.headless ? [] : ['--headed']),
     ...opts.specFolders,

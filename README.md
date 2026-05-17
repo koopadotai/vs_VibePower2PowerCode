@@ -16,10 +16,13 @@ When you build an app on **make.powerapp.com**, it runs on Vibe — Microsoft's 
 This toolkit provides:
 - **`vibe-extractor/`** — Playwright tool to download your Vibe source code (also handles version-control: diffs new extractions vs the last baseline and writes a pending-update manifest)
 - **`vibe-verifier/`** — Playwright-based test runner that pops a browser, runs version-scoped specs against the deployed Power Apps player, and auto-raises GitHub issues on failure
-- **`vibe-reporter/`** — Generates comprehensive project documentation (`PROJECT.md` + `PROJECT.docx`) from `vibe-history.json`, `CONTEXT.md`, and the migrated project
+- **`vibe-reporter/`** — Generates per-project documentation (`docs/PROJECT.md` + `.docx`) from `vibe-history.json`, `CONTEXT.md`, and the migrated project
+- **`vibe-toolkit-doc/`** — Generates documentation for the toolkit *itself* (`docs/SYSTEM.md` + `.docx`) — AI-readable solution graph (nodes, edges, flows, impact analysis)
+- **`vibe-fleet/`** — Multi-project orchestration: register many migration projects, run `status`/`extract`/`verify`/`report` across all of them, aggregate into `FLEET.md` / `.docx` / `.html`
+- **`vibe-patterns/`** — Shared knowledge base of reusable patterns (field-mappings, connectors, ADRs) — consulted by `/migrate` before asking the developer
 - **`CLAUDE.md`** — Instructions that teach Claude Code how to migrate any Vibe app
-- **`skills/`** — Claude Code slash commands: `/migrate` (single entry point — auto-detects first-time vs incremental), `/verify-migration`, `/migration-report`, `/map-fields`, `/add-connector`, `/grill-with-docs`
-- **`docs/`** — Complete migration guide and troubleshooting reference
+- **`skills/`** — Claude Code slash commands: `/migrate` (single entry point — auto-detects first-time vs incremental), `/verify-migration`, `/migration-report`, `/map-fields`, `/add-connector`, `/grill-with-docs`, `/diagnose`, `/handoff`, `/karpathy-guidelines`
+- **`docs/`** — Complete migration guide, troubleshooting, and the generated `SYSTEM.md` / `SYSTEM.docx`
 
 ---
 
@@ -115,30 +118,50 @@ See [`docs/why-ai-is-required.md`](docs/why-ai-is-required.md) for a complete an
 vs_VibePower2PowerCode/
 ├── CLAUDE.md                  ← AI migration instructions (the brain)
 ├── README.md                  ← This file
-├── vibe-extractor/            ← Playwright source extraction tool
-│   ├── index.js               ← CLI entry point
+├── vibe-extractor/            ← Playwright source extraction + diff/version engine
+│   ├── index.js               ← CLI entry point (interactive Vibe sign-in, scrape, diff, bump)
 │   ├── extractor.js           ← Core extraction engine
 │   ├── extract.js             ← Manual extraction (fallback)
-│   └── console-extract.js     ← Browser console script (fallback)
-├── skills/
+│   ├── console-extract.js     ← Browser console script (fallback)
+│   └── lib/                   ← diff-and-version, schemas, errors, lock
+├── vibe-verifier/             ← Playwright test runner against deployed app
+│   ├── index.js               ← CLI: --setup-auth, --latest, --since vX.Y.Z, --headless, --no-report
+│   ├── playwright.config.ts   ← Bundled config (no setup needed in user projects)
+│   └── lib/                   ← auth-setup, version-filter, runner, github-reporter, schemas, errors, lock
+├── vibe-reporter/             ← Per-project documentation generator
+│   ├── index.js               ← Produces docs/PROJECT.md + docs/PROJECT.docx
+│   └── lib/                   ← collect, render-markdown, render-docx
+├── vibe-toolkit-doc/          ← Toolkit-itself documentation generator
+│   ├── index.js               ← Produces docs/SYSTEM.md + docs/SYSTEM.docx
+│   └── lib/                   ← system-model (hand-authored graph), render-md, render-docx
+├── vibe-fleet/                ← Multi-project orchestration (Tier-2)
+│   ├── index.js               ← CLI: init, register, list, status, doctor, extract, verify, report
+│   └── lib/                   ← discovery, registry, probe, render-status, run-on-project, fleet-collect, render-fleet-{md,docx,html}
+├── vibe-patterns/             ← Shared knowledge base of reusable patterns
+│   ├── index.js               ← CLI: list, show, apply
+│   ├── field-mappings/        ← JSON patterns for friendly→Dataverse mapping
+│   ├── connectors/            ← JSON patterns for connector setup
+│   └── adrs/                  ← Markdown ADRs to copy into new projects
+├── skills/                    ← Claude Code slash commands
 │   ├── migrate.md             ← /migrate — auto-detects first-run, incremental, or up-to-date
 │   ├── version-control.md     ← versioning policy reference (manifests, snapshots, semver)
 │   ├── verify-migration.md    ← /verify-migration — generate + run Playwright tests
+│   ├── migration-report.md    ← /migration-report — render PROJECT.md / PROJECT.docx
 │   ├── map-fields.md          ← /map-fields — field name discovery
 │   ├── add-connector.md       ← /add-connector — connector setup
-│   └── grill-with-docs.md     ← /grill-with-docs — structured design review protocol
-├── vibe-verifier/             ← Playwright test runner (parallel to vibe-extractor)
-│   ├── index.js               ← CLI: --setup-auth, --latest, --since vX.Y.Z
-│   └── lib/                   ← auth, version filter, runner, GitHub reporter
+│   ├── grill-with-docs.md     ← /grill-with-docs — structured design review protocol
+│   ├── diagnose.md            ← /diagnose — disciplined diagnosis loop for hard bugs
+│   ├── handoff.md             ← /handoff — compact current session to a handoff doc
+│   └── karpathy-guidelines.md ← four behavioural rules for reasoning-heavy steps
 ├── scripts/
 │   └── check-setup.ps1        ← Idempotent prerequisite checker (runs silently)
-├── docs/
-│   ├── migration-guide.md     ← Complete step-by-step guide
-│   ├── why-ai-is-required.md  ← Why scripts alone can't do this
-│   └── troubleshooting.md     ← Common errors and fixes
-└── examples/
-    └── dice-game/             ← Reference migration (3 Dice Game)
-        └── CONTEXT.md
+└── docs/
+    ├── migration-guide.md     ← Complete step-by-step guide
+    ├── why-ai-is-required.md  ← Why scripts alone can't do this
+    ├── troubleshooting.md     ← Common errors and fixes
+    ├── SYSTEM.md              ← Generated: AI-readable toolkit architecture
+    ├── SYSTEM.docx            ← Generated: Word version of the above
+    └── adr/                   ← Architecture decision records
 ```
 
 ---
@@ -183,15 +206,16 @@ npx power-apps push
 
 ---
 
-## Reference Migration
+## Recurring patterns
 
-The `examples/dice-game/` folder documents a complete real migration — the 3 Dice Game app was migrated from Vibe to Power Code using this exact toolkit.
+Lessons learned that apply to every Vibe → Power Code migration — codified into the toolkit so you don't rediscover them:
 
-Key lessons from that migration:
-- `playerPhoto` → `cr1e9_playerphoto` (different publisher prefix — required AI to resolve)
-- `BrowserRouter` → `HashRouter` (Power Apps player iframe routing fix)
-- Office 365 email: replaced `fetch()` webhook with `executeAsync({ connectorOperation })` via SDK
-- `npx power-apps add-data-source` is the only safe way to register connectors
+- Friendly field names (e.g. `playerPhoto`) map to Dataverse raw names with a publisher prefix (e.g. `cr1e9_playerphoto`) — the prefix differs per environment, so the mapping is never assumed; `/migrate` asks when ambiguous and persists the answer in `vibe-patterns/field-mappings/`
+- `BrowserRouter` → `HashRouter` is mandatory — the Power Apps player hosts your app in an iframe at a non-root path. See [vibe-patterns/adrs/always-hashrouter.md](vibe-patterns/adrs/always-hashrouter.md)
+- Office 365 email and other connectors: replace direct `fetch()` to webhooks with `executeAsync({ connectorOperation })` via the SDK — CSP blocks `fetch()` in the deployed player
+- `npx power-apps add-data-source` is the only safe way to register connectors — never edit `dataSourcesInfo.ts` by hand
+
+See [vibe-patterns/](vibe-patterns/) for the full library.
 
 ---
 

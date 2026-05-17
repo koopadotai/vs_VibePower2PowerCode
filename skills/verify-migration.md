@@ -91,7 +91,6 @@ The CLI auto-posts to GitHub by default (`gh issue create` or comments on an exi
 | Path | Owner | Purpose |
 |---|---|---|
 | `tests/specs/v{version}/` | `/verify-migration` (generate) | One folder per migration version. Tests stay there forever — even after the version is no longer "latest". |
-| `tests/playwright.config.ts` | written once | Playwright config, reads env vars from the runner CLI. |
 | `tests/results/v{version}/{date}/` | `vibe-verifier/lib/runner.js` | Per-run artifacts: report.json, traces, screenshots. Safe to delete old ones. |
 | `vibe-verifier/.auth/state.json` | `--setup-auth` | Saved Microsoft account session. **Gitignored** — contains tokens. |
 | `vibe-history.json` `testResults` | `vibe-verifier/lib/runner.js` | Appended per-version after each run: `{ passed, failed, skipped, runAt, durationMs }`. |

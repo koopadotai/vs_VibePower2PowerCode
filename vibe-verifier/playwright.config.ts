@@ -3,21 +3,26 @@ import { defineConfig, devices } from '@playwright/test';
 /**
  * Playwright config for Vibe Verifier.
  *
- * The CLI (vibe-verifier/index.js) sets these env vars before invoking
- * Playwright:
+ * Config lives inside vibe-verifier/ (not the user's project) so a fresh
+ * project never has to copy a template. The CLI (vibe-verifier/index.js)
+ * spawns Playwright from this directory and sets env vars to bridge the
+ * user-project paths in:
  *   VIBE_VERIFY_BASE_URL        — deployed Power Apps player URL
  *   VIBE_VERIFY_STORAGE_STATE   — path to saved auth state (cookies + localStorage)
  *   VIBE_VERIFY_OUTPUT_DIR      — where to write trace/screenshot artifacts
+ *   VIBE_VERIFY_TEST_DIR        — absolute path to the user project's tests/specs/
  *
- * Spec folders are passed positionally on the CLI (e.g. tests/specs/v1.1.0).
+ * Spec folders are passed positionally on the CLI (absolute paths under
+ * VIBE_VERIFY_TEST_DIR), which Playwright uses as a filter on testDir.
  */
 
 const baseURL = process.env.VIBE_VERIFY_BASE_URL ?? 'https://apps.powerapps.com/';
 const storageState = process.env.VIBE_VERIFY_STORAGE_STATE || undefined;
 const outputDir = process.env.VIBE_VERIFY_OUTPUT_DIR || 'tests/results/default';
+const testDir = process.env.VIBE_VERIFY_TEST_DIR || './specs';
 
 export default defineConfig({
-  testDir: './specs',
+  testDir,
   testMatch: '**/*.spec.ts',
 
   fullyParallel: false,        // deployed app + shared Dataverse → serial is safer

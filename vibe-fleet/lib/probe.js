@@ -16,11 +16,13 @@
  */
 
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { parseHistory, parseMigration } from './schemas.js';
 import { ToolkitError } from './errors.js';
 
 const STALE_AFTER_DAYS = 30;
+const STALE_LOCK_MS = 60 * 60 * 1000; // 1h — must match lock.js DEFAULT_STALE_MS
 
 function readJsonOrNull(p) {
   if (!fs.existsSync(p)) return null;
@@ -41,6 +43,30 @@ function daysAgo(iso) {
   return Math.floor(ms / (24 * 60 * 60 * 1000));
 }
 
+// Mirror of vibe-extractor/lib/lock.js isStaleLock — kept inline rather
+// than imported to keep vibe-fleet free of cross-package coupling.
+function isProcessAlive(pid) {
+  try { process.kill(pid, 0); return true; }
+  catch (err) {
+    if (err.code === 'ESRCH') return false;
+    if (err.code === 'EPERM') return true;
+    return false;
+  }
+}
+
+function classifyLock(lock) {
+  if (!lock || typeof lock !== 'object') return 'stale';      // corrupted
+  if (!lock.startedAt || typeof lock.pid !== 'number') return 'stale';
+  const age = Date.now() - new Date(lock.startedAt).getTime();
+  if (Number.isNaN(age)) return 'stale';
+  const sameHost = !lock.host || lock.host === os.hostname();
+  if (sameHost) {
+    if (!isProcessAlive(lock.pid)) return 'stale';
+    return age > STALE_LOCK_MS ? 'stale' : 'active';
+  }
+  return age > STALE_LOCK_MS ? 'stale' : 'active';
+}
+
 /**
  * @param {string} projectPath  Absolute path to project root
  * @returns {object}  Probe result
@@ -58,6 +84,7 @@ export function probeProject(projectPath) {
     pendingToVersion: null,
     hasLock: false,
     lockHolderPid: null,
+    lockStatus: null,           // 'active' | 'stale' | null
     lastTestRunAt: null,
     lastTestPassed: null,
     lastTestFailed: null,
@@ -78,6 +105,7 @@ export function probeProject(projectPath) {
     result.hasLock = true;
     const lock = readJsonOrNull(lockPath);
     result.lockHolderPid = lock?.pid ?? null;
+    result.lockStatus = classifyLock(lock);
   }
 
   // ── Vibe history ──────────────────────────────────────────────────────
@@ -121,9 +149,12 @@ export function probeProject(projectPath) {
   // ── Health classification (priority order) ────────────────────────────
   if (result.health === 'missing' || result.health === 'warning') {
     // already set
-  } else if (result.hasLock) {
+  } else if (result.hasLock && result.lockStatus === 'active') {
     result.health = 'locked';
-    result.warnings.push(`vibe-lock present (pid ${result.lockHolderPid ?? '?'}) — another process is mid-write.`);
+    result.warnings.push(`vibe-lock active (pid ${result.lockHolderPid ?? '?'}) — another process is mid-write.`);
+  } else if (result.hasLock && result.lockStatus === 'stale') {
+    result.health = 'warning';
+    result.warnings.push(`Orphaned vibe-lock (pid ${result.lockHolderPid ?? '?'} dead or > 1h old). Delete the file to clear, or the next command will auto-recover.`);
   } else if (result.hasPendingUpdate) {
     result.health = 'pending-update';
     result.warnings.push(`Unapplied update: v${result.pendingFromVersion} → v${result.pendingToVersion}. Run /migrate.`);
