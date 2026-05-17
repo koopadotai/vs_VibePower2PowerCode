@@ -31,6 +31,7 @@ import {
 } from './lib/registry.js';
 import { probeProject } from './lib/probe.js';
 import { renderStatus } from './lib/render-status.js';
+import { runOnProjects, summariseBatchResults, siblingCli } from './lib/run-on-project.js';
 import { ToolkitError, ERROR_CODES } from './lib/errors.js';
 
 const DIVIDER = '═'.repeat(58);
@@ -38,7 +39,11 @@ const DIVIDER = '═'.repeat(58);
 // ── Flag parser ────────────────────────────────────────────────────────────
 
 function parseArgs(argv) {
-  const out = { command: null, positional: [], config: null, alias: null, tags: [], global: false, help: false };
+  const out = {
+    command: null, positional: [], config: null, alias: null, tags: [], global: false, help: false,
+    // Pass-through flags for verify/extract subprocesses
+    headless: false, noReport: false, since: null, major: false, force: false, stopOnFirstFailure: false,
+  };
   let i = 0;
   while (i < argv.length) {
     const a = argv[i];
@@ -46,6 +51,12 @@ function parseArgs(argv) {
     else if (a === '--alias')   { out.alias = argv[++i]; }
     else if (a === '--tag')     { out.tags.push(argv[++i]); }
     else if (a === '--global')  { out.global = true; }
+    else if (a === '--headless'){ out.headless = true; }
+    else if (a === '--no-report'){ out.noReport = true; }
+    else if (a === '--since')   { out.since = argv[++i]; }
+    else if (a === '--major')   { out.major = true; }
+    else if (a === '--force')   { out.force = true; }
+    else if (a === '--stop-on-failure') { out.stopOnFirstFailure = true; }
     else if (a === '--help' || a === '-h') { out.help = true; }
     else if (out.command == null) { out.command = a; }
     else { out.positional.push(a); }
@@ -66,9 +77,13 @@ function printHelp() {
     status                            Show all projects + health (default)
     doctor                            Validate every project's manifests
     list                              Print alias → path mapping
+    extract [--alias X]               Run vibe-extractor on each project (sequential, interactive)
+    verify [--alias X] [--since vX.Y.Z] [--headless] [--no-report]
+                                      Run vibe-verifier on each project
 
   Global options:
     --config <path>                   Use a specific fleet config
+    --stop-on-failure                 Stop batch on first non-zero exit (default: continue)
     --help, -h                        Show this message
 
   Config discovery (in order):
@@ -166,6 +181,72 @@ function cmdStatus({ configPath, configSource }) {
   process.stdout.write(renderStatus({ registry, configPath, configSource, probes }));
 }
 
+function selectProjects(registry, aliasFilter) {
+  if (!aliasFilter) return registry.projects;
+  const match = registry.projects.find(p => p.alias === aliasFilter);
+  if (!match) {
+    throw new ToolkitError(
+      ERROR_CODES.E_PROJECT_NOT_REGISTERED,
+      `No registered project with alias \`${aliasFilter}\`.`,
+      { alias: aliasFilter, registeredAliases: registry.projects.map(p => p.alias) },
+    );
+  }
+  return [match];
+}
+
+async function cmdExtract({ args, configPath }) {
+  const registry = loadRegistry(configPath);
+  const projects = selectProjects(registry, args.alias);
+  if (projects.length === 0) {
+    console.log('  (no projects to extract)');
+    return;
+  }
+  console.log('');
+  console.log(`vibe-fleet extract — ${projects.length} project(s), sequential`);
+  console.log('Each project will pop a browser for Microsoft sign-in.');
+  if (args.major) console.log('  Flag: --major (bumps major version on each)');
+  if (args.force) console.log('  Flag: --force (discards existing pending manifests)');
+
+  const passThroughArgs = [];
+  if (args.major) passThroughArgs.push('--major');
+  if (args.force) passThroughArgs.push('--force');
+
+  const results = await runOnProjects({
+    projects,
+    scriptPath: siblingCli('vibe-extractor'),
+    args: passThroughArgs,
+    stopOnFirstFailure: args.stopOnFirstFailure,
+  });
+  process.stdout.write(summariseBatchResults(results));
+  if (results.some(r => r.exitCode !== 0)) process.exitCode = 1;
+}
+
+async function cmdVerify({ args, configPath }) {
+  const registry = loadRegistry(configPath);
+  const projects = selectProjects(registry, args.alias);
+  if (projects.length === 0) {
+    console.log('  (no projects to verify)');
+    return;
+  }
+  console.log('');
+  console.log(`vibe-fleet verify — ${projects.length} project(s), sequential`);
+
+  const passThroughArgs = [];
+  if (args.since) passThroughArgs.push('--since', args.since);
+  else passThroughArgs.push('--latest');
+  if (args.headless) passThroughArgs.push('--headless');
+  if (args.noReport) passThroughArgs.push('--no-report');
+
+  const results = await runOnProjects({
+    projects,
+    scriptPath: siblingCli('vibe-verifier'),
+    args: passThroughArgs,
+    stopOnFirstFailure: args.stopOnFirstFailure,
+  });
+  process.stdout.write(summariseBatchResults(results));
+  if (results.some(r => r.exitCode !== 0)) process.exitCode = 1;
+}
+
 function cmdDoctor({ configPath, configSource }) {
   const registry = loadRegistry(configPath);
   console.log('');
@@ -224,6 +305,8 @@ async function main() {
     case 'list':       return cmdList(ctx);
     case 'status':     return cmdStatus(ctx);
     case 'doctor':     return cmdDoctor(ctx);
+    case 'extract':    return cmdExtract(ctx);
+    case 'verify':     return cmdVerify(ctx);
     default:
       console.error(`  ! Unknown command: ${command}`);
       printHelp();
