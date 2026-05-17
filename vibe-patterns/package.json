@@ -1,0 +1,13 @@
+{
+  "name": "vibe-patterns",
+  "version": "1.0.0",
+  "description": "Shared knowledge base of reusable migration patterns (field mappings, connector configs, common ADRs)",
+  "type": "module",
+  "main": "index.js",
+  "bin": {
+    "vibe-patterns": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js"
+  }
+}

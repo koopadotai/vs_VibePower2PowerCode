@@ -1,0 +1,13 @@
+{
+  "name": "example-ws-prefix",
+  "description": "Example field-mapping pattern — Dataverse env using the `ws_` publisher prefix for shared fields and `cr1e9_` for custom. Replace with your own client/env-specific mappings.",
+  "publisherPrefixes": ["ws_", "cr1e9_"],
+  "mappings": {
+    "title": "ws_title",
+    "description": "ws_description",
+    "createdAt": "ws_createdat",
+    "modifiedAt": "ws_modifiedat",
+    "photo": "cr1e9_photo",
+    "score": "cr1e9_score"
+  }
+}

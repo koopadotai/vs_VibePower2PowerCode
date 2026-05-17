@@ -1,0 +1,9 @@
+{
+  "name": "example-office365",
+  "description": "Example connector pattern for a tenant Office 365 connection. Replace connectionId with your actual value (found in make.powerapps.com → Connections).",
+  "apiId": "shared_office365",
+  "connectionId": "REPLACE-WITH-ACTUAL-CONNECTION-ID",
+  "tableName": "office365",
+  "commonOperations": ["SendEmailV2", "CalendarV4Get", "ContactsV4Get"],
+  "notes": "Always exchanges via executeAsync({ connectorOperation }) — direct fetch() is CSP-blocked in the Power Apps player."
+}
