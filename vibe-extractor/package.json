@@ -9,7 +9,8 @@
   },
   "scripts": {
     "start": "node index.js",
-    "extract": "node index.js"
+    "extract": "node index.js",
+    "postinstall": "playwright install chromium"
   },
   "dependencies": {
     "playwright": "^1.44.0",

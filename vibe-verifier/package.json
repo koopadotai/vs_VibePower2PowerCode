@@ -10,7 +10,8 @@
   "scripts": {
     "start": "node index.js",
     "verify": "node index.js",
-    "setup-auth": "node index.js --setup-auth"
+    "setup-auth": "node index.js --setup-auth",
+    "postinstall": "playwright install chromium"
   },
   "dependencies": {
     "@playwright/test": "^1.44.0",

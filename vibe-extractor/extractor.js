@@ -4,10 +4,10 @@
  * export: extractVibeProject({ url, outputDir, log? })
  */
 
-import { chromium } from 'playwright';
 import fs from 'fs';
 import path from 'path';
 import readline from 'readline';
+import { launchChromium } from './lib/launch-browser.js';
 
 const SKIP_URL = [
   'node_modules', '.vite/', '@vite', '@react-refresh',
@@ -45,7 +45,7 @@ function saveFile(outputDir, filePath, content) {
 export async function extractVibeProject({ url, outputDir, log = console.log }) {
   fs.mkdirSync(outputDir, { recursive: true });
 
-  const browser = await chromium.launch({ headless: false, slowMo: 20 });
+  const browser = await launchChromium();
   const context  = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   const page = await context.newPage();

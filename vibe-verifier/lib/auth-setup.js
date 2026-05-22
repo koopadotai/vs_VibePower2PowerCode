@@ -9,11 +9,11 @@
  * Same pattern used by vibe-extractor/extractor.js for Vibe login.
  */
 
-import { chromium } from 'playwright';
 import fs from 'fs';
 import path from 'path';
 import readline from 'readline';
 import { fileURLToPath } from 'url';
+import { launchChromium } from './launch-browser.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const AUTH_DIR = path.resolve(__dirname, '..', '.auth');
@@ -39,7 +39,7 @@ export async function setupAuth({ appUrl, log = console.log }) {
   log(`    ${appUrl}`);
   log('');
 
-  const browser = await chromium.launch({ headless: false, slowMo: 20 });
+  const browser = await launchChromium();
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page = await context.newPage();
 

@@ -7,10 +7,10 @@
  *   5. Saves everything to ./dice-game-source/
  */
 
-import { chromium } from 'playwright';
 import fs from 'fs';
 import path from 'path';
 import readline from 'readline';
+import { launchChromium } from './lib/launch-browser.js';
 
 const VIBE_URL =
   'https://vibe.powerapps.com/e/a54c44ed-fdbd-ecba-833f-24a72ce23985' +
@@ -35,7 +35,7 @@ async function run() {
   console.log('  Vibe DOM Diagnostics + Auto-Extractor');
   console.log('══════════════════════════════════════════════\n');
 
-  const browser = await chromium.launch({ headless: false, slowMo: 20 });
+  const browser = await launchChromium();
   const context = await browser.newContext({ viewport: { width: 1400, height: 900 } });
   const page    = await context.newPage();
 

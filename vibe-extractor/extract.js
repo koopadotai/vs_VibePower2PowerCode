@@ -12,10 +12,10 @@
  *   node extract.js [outputDir]
  */
 
-import { chromium } from 'playwright';
 import fs from 'fs';
 import path from 'path';
 import readline from 'readline';
+import { launchChromium } from './lib/launch-browser.js';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 const VIBE_URL =
@@ -168,7 +168,7 @@ async function run() {
 
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
-  const browser = await chromium.launch({ headless: false, slowMo: 20 });
+  const browser = await launchChromium();
   const context = await browser.newContext({ viewport: { width: 1400, height: 900 } });
   const page = await context.newPage();
 

@@ -35,14 +35,19 @@ Check "vibe-extractor packages" `
     }
 
 # ── Playwright Chromium browser ───────────────────────────────────────
+# Playwright stores its browsers under $env:LOCALAPPDATA\ms-playwright\chromium-*.
+# The earlier `node_modules\playwright-core\.local-browsers` check was wrong
+# for modern Playwright; this one matches the actual install location.
 Check "Playwright Chromium" `
     {
-        $dir = Join-Path $PSScriptRoot "..\vibe-extractor\node_modules\playwright-core\.local-browsers"
-        (Test-Path $dir) -and (Get-ChildItem $dir -Filter "chromium*" -ErrorAction SilentlyContinue).Count -gt 0
+        $browsersDir = Join-Path $env:LOCALAPPDATA "ms-playwright"
+        (Test-Path $browsersDir) -and (Get-ChildItem $browsersDir -Filter "chromium-*" -Directory -ErrorAction SilentlyContinue).Count -gt 0
     } `
     {
+        # `npm install` should have triggered this via the postinstall hook;
+        # run it again here in case --ignore-scripts was used.
         Push-Location (Join-Path $PSScriptRoot "..\vibe-extractor")
-        npx playwright install chromium 2>$null
+        npx playwright install chromium
         Pop-Location
     }
 
